@@ -1,0 +1,23 @@
+# 忽略所有层级下名为 build 的目录
+build/
+
+# 本机 VS Code 配置
+/.vscode/
+
+# 其他常见 CMake 构建目录
+cmake-build-*/
+
+# 散落在构建目录之外的编译产物
+*.o
+*.a
+*.so
+a.out
+
+# 编辑器临时文件
+*.swp
+*.swo
+*~
+
+# 源码目录中遗留的编译生成程序
+/webserver/demo_test/tcpclient
+/webserver/demo_test/tcpserver
