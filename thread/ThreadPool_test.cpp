@@ -127,56 +127,6 @@ ThreadPool::~ThreadPool() {
         }
     }
 }
-void produce(std::queue<Task>& tasks,
-             std::mutex& mtx,
-             std::condition_variable& cv,
-             int start) {
-    for (int i = 0; i < kTasksPerProducer; ++i) {
-        int id = start + i;
-
-        {
-            std::lock_guard<std::mutex> lock(mtx);
-            tasks.push([id]{std::cout<< "执行任务"<< id <<std::endl;});
-        }// 释放锁
-
-        cv.notify_one(); // 再通知消费者
-    }
-}
-
-void consume(std::queue<Task>& tasks,
-             std::mutex& mtx,
-             std::condition_variable& cv,
-             bool& finished) {
-    while (true) {
-        Task task;
-
-        {
-            std::unique_lock<std::mutex> lock(mtx);
-
-            cv.wait(lock, [&tasks, &finished] {
-                return !tasks.empty() || finished;
-            });//ps：wait() 的判断函数返回 true，表示“可以继续执行”，返回 false 才表示“需要等待”。
-
-            if (finished && tasks.empty()) {
-                break;
-            }
-
-            // TODO 1：
-            // 将队头任务移动到局部变量 task，
-            // 然后删除队头元素。
-            task = std::move(tasks.front());
-            tasks.pop();
-        } // 释放队列锁
-
-        // TODO 2：
-        // 调用 task，执行任务。
-        task();
-        // std::cout<< "执行任务" << task() <<std::endl;
-    }
-
-    std::cout << "消费者退出\n";
-}
-
 int main() {
 
     {
