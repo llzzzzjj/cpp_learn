@@ -20,7 +20,7 @@ add_compile_options(-Wall -Wextra -Wpedantic)
 # ───────────────────────── 依赖 ─────────────────────────
 find_package(Threads REQUIRED)
 
-# 公共头文件 + 线程库：所有 target 都通过链接它获得 -Iinclude 和 -pthread
+# 公共头文件 + 线程库：所有 target 都通过链接它获得 -include 和 -pthread
 add_library(common INTERFACE)
 target_include_directories(common INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(common INTERFACE Threads::Threads)
