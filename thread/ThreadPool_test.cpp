@@ -8,12 +8,17 @@
 #include <cstddef>
 #include <vector>
 #include <stdexcept>
+#include <exception>
+#include <atomic>
 
 using Task = std::function<void()>;
 
 class ThreadPool{
 public:
-    explicit ThreadPool(std::size_t thread_count);
+    explicit ThreadPool(
+        std::size_t thread_count,
+        std::size_t max_queue_size = 64
+    );
     ~ThreadPool();
 
     //禁止拷贝
@@ -27,17 +32,16 @@ public:
         }
 
         {
-            // TODO 1：使用 lock_guard 锁住 mtx_
             std::lock_guard<std::mutex>lg_lock(mtx_);
-            // TODO 2：如果 stopping_ 为真，返回 false
             if(stopping_){
                 return false;
             }
-            // TODO 3：将 task 移动到 tasks_ 中
+            if(tasks_.size() >= max_queue_size_){
+                return false;
+            }
             tasks_.push(std::move(task));
         }
 
-        // TODO 4：通知一个等待的工作线程
         cv_.notify_one();
         return true;
     }
@@ -48,36 +52,51 @@ private:
             Task task;
 
             {
-                // TODO 5：使用 unique_lock 锁住 mtx_
                 std::unique_lock<std::mutex>u_lock(mtx_);
 
-                // TODO 6：等待“队列非空，或者线程池开始停止”
+                // 等待“队列非空，或者线程池开始停止”
                 cv_.wait(u_lock,[this]{
                     return !tasks_.empty() || stopping_;
                 });
-                // TODO 7：如果开始停止且队列为空，退出循环
+
                 if(tasks_.empty() && stopping_){
                     break;
                 }
-                // TODO 8：移动队头任务到 task，再删除队头
                 task = std::move(tasks_.front());
                 tasks_.pop();
             }
 
-            // TODO 9：在锁外执行 task
-            task();
+            // // TODO 9：在锁外执行 task
+            // task();
+            try {
+                // TODO 1：执行当前任务
+                task();
+            } catch (const std::exception& e) {
+                // TODO 2：向 std::cerr 输出错误信息 e.what()
+                std::cerr<<e.what()<<std::endl;
+            } catch (...) {
+                // TODO 3：输出“任务发生未知异常”
+                std::cerr<<"任务发生未知异常\n";
+            }
         }
     }
+private:
     std::queue<Task> tasks_;
     std::mutex mtx_;
     std::condition_variable cv_;
     bool stopping_ = false;
+
+    const std::size_t max_queue_size_;
+
     std::vector<std::thread> workers_;
 };
 
-ThreadPool::ThreadPool(std::size_t thread_count) {
-    if (thread_count == 0) {
-        throw std::invalid_argument("线程数量必须大于 0");
+ThreadPool::ThreadPool(
+    std::size_t thread_count, 
+    std::size_t max_queue_size
+    ) : max_queue_size_(max_queue_size){
+    if (thread_count == 0 || max_queue_size == 0) {
+        throw std::invalid_argument("线程数量和队列容量都必须大于 0");
     }
 
     workers_.reserve(thread_count);//提前预留容纳线程对象的空间
@@ -109,18 +128,12 @@ ThreadPool::ThreadPool(std::size_t thread_count) {
 
 ThreadPool::~ThreadPool() {
     {
-        // TODO 1：
-        // 使用 lock_guard 锁住 mtx_，
-        // 将 stopping_ 设置为 true。
         std::lock_guard<std::mutex>lg_lock(mtx_);
         stopping_ = true;
     }
 
-    // TODO 2：
-    // 唤醒所有工作线程。
     cv_.notify_all();
     for (auto& worker : workers_) {
-        // TODO 3：
         // 如果 worker.joinable()，调用 worker.join()。
         if(worker.joinable()){
             worker.join();
@@ -128,16 +141,29 @@ ThreadPool::~ThreadPool() {
     }
 }
 int main() {
+    
+    std::atomic<int>completed{0};
 
     {
         ThreadPool pool(2);
-        for (int id = 0; id < 20; ++id) {
-            pool.submit([id] {
-                std::cout << "执行任务：" << id << '\n';
+        pool.submit([]{
+            throw std::runtime_error("模拟任务失败");
+        });
+        for (int id = 0; id < 5; ++id) {
+            pool.submit([&completed] {
+                ++completed;
             });
         }
     }
+    try{
+        ThreadPool pool(2,0);
+    }catch (const std::invalid_argument& e){
+        std::cout << "捕获参数失败：" <<e.what()<<'\n';
+    }
 
-    std::cout << "线程池已销毁，全部任务结束\n";
-    return 0;
+    std::cout << "正常任务完成数："
+              << completed.load() << '\n';
+
+    return completed.load() == 5 ? 0 : 1;
+    // return 0;
 }
