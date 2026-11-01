@@ -66,14 +66,14 @@ bool test_queue_full(){
 
         accepted_as_expected = a && b && c && !d;
 
-        // 无论提交结果是否符合预期，都先放行 A
+        // 无论提交结果是否符合预期，都先放行 a
         {
             std::lock_guard<std::mutex> lock(gate_mtx);
             allow_finish = true;
         }
         gate_cv.notify_all();
 
-    } // 析构等待 A、B、C 处理完毕
+    } // 析构等待 a、b、c 处理完毕
 
     std::cout << "完成任务数："
               << completed.load() << '\n';

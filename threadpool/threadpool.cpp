@@ -79,16 +79,16 @@ void ThreadPool::worker_loop() {
             tasks_.pop();
         }
 
-        // // TODO 9：在锁外执行 task
+        // 在锁外执行 task
         // task();
         try {
-            // TODO 1：执行当前任务
+            // 执行当前任务
             task();
         } catch (const std::exception& e) {
-            // TODO 2：向 std::cerr 输出错误信息 e.what()
+            // 向 std::cerr 输出错误信息 e.what()
             std::cerr<<e.what()<<std::endl;
         } catch (...) {
-            // TODO 3：输出“任务发生未知异常”
+            // 输出“任务发生未知异常”
             std::cerr<<"任务发生未知异常\n";
         }
     }
@@ -96,18 +96,14 @@ void ThreadPool::worker_loop() {
 
 void ThreadPool::shutdown() {
     {
-        // TODO 1：
         // 持有 mtx_，设置 stopping_ = true。
         std::lock_guard<std::mutex>lock(mtx_);
         stopping_ = true;
     }
 
-    // TODO 2：
     // 通知所有等待的工作线程。
     cv_.notify_all();
-    // TODO 3：
-    // 遍历 workers_，
-    // 对 joinable 的线程调用 join()。
+    // 遍历 workers_，对 joinable 的线程调用 join()。
     for(auto &w : workers_){
         if(w.joinable())   
             w.join();

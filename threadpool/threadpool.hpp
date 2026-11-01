@@ -19,6 +19,7 @@ public:
 
     ~ThreadPool();
 
+    //禁止拷贝构造、拷贝赋值
     ThreadPool(const ThreadPool&) = delete;
     ThreadPool& operator=(const ThreadPool&) = delete;
 

@@ -48,4 +48,3 @@ add_test(
 set_tests_properties(threadpool_regression PROPERTIES
     TIMEOUT 30
 )
-
