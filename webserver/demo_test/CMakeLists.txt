@@ -14,6 +14,13 @@ add_executable(server_test server_test.cpp socket_utils.cpp)
 add_executable(client_test client_test.cpp socket_utils.cpp)
 add_executable(echo_server echo_server.cpp socket_utils.cpp)
 add_executable(epoll_server epoll_server.cpp socket_utils.cpp)
+add_subdirectory(
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../threadpool"
+    "${CMAKE_CURRENT_BINARY_DIR}/threadpool-build"
+    EXCLUDE_FROM_ALL
+)
+
+target_link_libraries(epoll_server PRIVATE threadpool)
 
 # 5.添加头文件搜索路径
 

@@ -35,7 +35,6 @@ ThreadPool::ThreadPool(
                 worker.join();
             }
         }
-
         throw;
     }
 }
@@ -63,7 +62,6 @@ bool ThreadPool::submit(Task task){
 void ThreadPool::worker_loop() {
     while (true) {
         Task task;
-
         {
             std::unique_lock<std::mutex>u_lock(mtx_);
 

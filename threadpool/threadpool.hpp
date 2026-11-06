@@ -29,10 +29,10 @@ public:
 private:
     void worker_loop();
 
-    std::queue<Task> tasks_;
+    std::queue<Task> tasks_;    //等待执行的任务队列
     std::mutex mtx_;
     std::condition_variable cv_;
     bool stopping_ = false;
     const std::size_t max_queue_size_;
-    std::vector<std::thread> workers_;
+    std::vector<std::thread> workers_; //工作线程
 };
