@@ -20,10 +20,13 @@
 #include <fcntl.h>
 #include <utility>
 #include <cstdlib>
+#include <signal.h>       // SIGINT、信号集合和屏蔽操作
+#include <sys/signalfd.h>  // signalfd() 和信号信息结构
 
 #include "fd.hpp"
 #include "socket_utils.hpp"
 #include "threadpool.hpp"
+#include "line_parser.hpp"
 
 constexpr int kPort    = 8888;  //端口号
 constexpr std::size_t kBufSize = 1024;
@@ -43,17 +46,26 @@ bool modify_event(int epfd, int fd, std::uint32_t interest) {
     return true;
 }
 
+
 struct Connection {
-    explicit Connection(FdGuard&& fd)
-        : socket(std::move(fd)) {}
+    explicit Connection(FdGuard&& fd) : socket(std::move(fd)) {}
 
     FdGuard socket;
     char output_buf[kBufSize];
     std::size_t size = 0;  // 有效字节数
     std::size_t sent = 0;  // 已经发送字节数
     std::uint64_t id = 0;  // 区分不同次建立的连接
-    
+    std::string input_buf;  // 累计收到的数据，完整行取走后保留剩余部分
 };
+//统一取消 epoll 登记、删除连接。
+void close_connection(int epfd, int fd, std::map<int, Connection>& clients) {
+    // 取消这个客户端的事件登记。
+    if (::epoll_ctl(epfd, EPOLL_CTL_DEL, fd, nullptr) == -1) {
+        std::perror("epoll_ctl DEL");
+    }
+
+    clients.erase(fd);  // 删除所有者，FdGuard 自动关闭 Socket
+}
 struct TaskResult {
     int fd;                        // 客户端 fd
     std::uint64_t connection_id;   // 本次连接的唯一编号
@@ -120,7 +132,12 @@ bool send_pending(Connection& conn) {
     if (conn.sent == conn.size) {
         return true;  // 没有剩余字节
     }
-    const ssize_t n = ::send(conn.socket.get(), conn.output_buf + conn.sent, conn.size - conn.sent, 0);
+    const ssize_t n = ::send(
+        conn.socket.get(), 
+        conn.output_buf + conn.sent, 
+        conn.size - conn.sent, 
+        MSG_NOSIGNAL
+    ); // 对端断开时，通过返回值处理发送错误
     if (n > 0) {
         conn.sent += static_cast<std::size_t>(n);
         return true;
@@ -134,6 +151,21 @@ bool send_pending(Connection& conn) {
     return false;
 }
 
+std::string process_request(const std::string& input) {
+    // 收到 fail 加换行时，故意抛异常，用于验证错误处理。
+    if (input == "fail\n") {
+        throw std::runtime_error("模拟业务处理失败");
+    }
+    std::string response = input;  // 保存一份可以修改的数据
+
+    for (char& ch : response) {
+        // ① 判断 ch 是否在 'a' 到 'z' 之间。
+        if(ch >= 'a' && ch <= 'z') {
+            ch = static_cast<char>(ch - 'a' + 'A');  // ② 如果是，转换成对应的大写字母。
+        }
+    }
+    return response;
+}
 
 int main(int argc, char const *argv[]){
     try{
@@ -183,7 +215,25 @@ int main(int argc, char const *argv[]){
         add_read_event(epollfd.get(), result_event.get());
         const int notify_fd = result_event.get();// 任务借用这个 fd，关闭责任仍由 result_event 持有。
 
+
+        sigset_t stop_mask;
+        handle_error("sigemptyset", ::sigemptyset(&stop_mask));
+        handle_error("sigaddset", ::sigaddset(&stop_mask, SIGINT));
+
+        // 屏蔽 Ctrl+C 产生的 SIGINT，让它等待 signalfd 读取。
+        const int mask_error = ::pthread_sigmask(SIG_BLOCK, &stop_mask, nullptr);
+        if (mask_error != 0) {
+            throw std::runtime_error(
+                std::string("pthread_sigmask: ") + std::strerror(mask_error));
+        }
+
+        // -1 表示创建新 fd，SFD_NONBLOCK 让读取采用非阻塞方式。
+        FdGuard stop_event(::signalfd(-1, &stop_mask, SFD_NONBLOCK));
+        handle_error("signalfd", stop_event.get());
+        add_read_event(epollfd.get(), stop_event.get());
+
         ThreadPool pool(2, 64);
+
         const bool accepted = pool.submit([] {
             const int result = 2 + 3;
             std::cerr << "[worker] 2 + 3 = " << result << '\n';
@@ -195,6 +245,66 @@ int main(int argc, char const *argv[]){
 
         std::uint64_t next_connection_id = 1; //定义计数器
         
+        //调度代码
+        auto dispatch_next = [&](Connection& conn) -> bool {
+            std::string request;
+            const int fd = conn.socket.get();
+
+            if (!extract_line(conn.input_buf, request)) {
+                // 最长请求为 1024 字节，包含结尾换行。
+                if (conn.input_buf.size() >= kBufSize) {
+                    std::cerr << "请求过长\n";
+                    return false;
+                }
+                return modify_event(epollfd.get(), fd, EPOLLIN);
+            }
+
+            if (request.size() > kBufSize) {
+                std::cerr << "请求过长\n";
+                return false;
+            }
+
+            const std::uint64_t connection_id = conn.id;
+            const bool accepted = pool.submit(
+                [request, fd, connection_id, &results, &results_mtx, notify_fd] {
+                    // 先准备错误响应；业务成功后再用正常结果覆盖。
+                    TaskResult result{fd, connection_id, "ERR\n"};
+
+                    try {
+                        result.data = process_request(request);  // 执行业务处理
+                    } catch (const std::exception& error) {
+                        // 标准异常及其派生异常，保留默认的 ERR 响应。
+                        std::cerr << "[worker] 业务异常：" << error.what() << '\n';
+                    } catch (...) {
+                        // 其他 C++ 异常，同样保留 ERR 响应。
+                        std::cerr << "[worker] 未知业务异常\n";
+                    }
+
+                    {
+                        std::lock_guard<std::mutex> lock(results_mtx);
+                        results.push(std::move(result));
+                    }
+
+                    int ret;
+                    do {
+                        ret = ::eventfd_write(notify_fd, 1);
+                    } while (ret == -1 && errno == EINTR);
+
+                    if (ret == -1 && errno != EAGAIN) {
+                        std::perror("eventfd_write");
+                    }
+                }
+            );
+
+            if (!accepted) {
+                std::cerr << "任务提交失败\n";
+                return false;
+            }
+
+            // 已提交，暂停读写通知，等待处理结果。
+            return modify_event(epollfd.get(), fd, 0);
+        };
+
         while (true) {
     /**
      * int epoll_wait(int __epfd, epoll_event *__events, int __maxevents, int __timeout)
@@ -217,7 +327,25 @@ int main(int argc, char const *argv[]){
             for (int i = 0; i < count; ++i) {
                 int fd = events[i].data.fd;
                 auto ready = events[i].events;
+                if (fd == stop_event.get()) {
+                    signalfd_siginfo info{};
 
+                    // 读取待处理的信号，info.ssi_signo 保存信号编号。
+                    const ssize_t n = ::read(fd, &info, sizeof(info));
+                    if (n == -1) {
+                        if (errno == EINTR || errno == EAGAIN) {
+                            continue;  // 交给后续事件处理
+                        }
+                        handle_error("read signalfd", -1);
+                    }
+
+                    if (info.ssi_signo == SIGINT) {
+                        std::cout << "[main] 收到退出信号，开始清理\n";
+                        return EXIT_SUCCESS;  // 离开 main，局部对象依次析构
+                    }
+
+                    continue;
+                }
                 if (fd == result_event.get()) {
                     eventfd_t notices = 0;
 
@@ -257,16 +385,15 @@ int main(int argc, char const *argv[]){
                             std::memcpy(target.output_buf, result.data.data(), result.data.size());
                             target.size = result.data.size();
                             target.sent = 0;
-
+                            // 确认事件线程取到了工作线程生成的响应。
+                            std::cout << "[main] 准备发送工作结果，连接编号="<< result.connection_id
+                                    << "，字节数=" << target.size << '\n';
                             should_close = !modify_event(epollfd.get(), result.fd, EPOLLOUT);
                         }
 
                         if (should_close) {
-                            // 这里清理的是结果所属的客户端。
-                            if (::epoll_ctl(epollfd.get(), EPOLL_CTL_DEL, result.fd, nullptr) == -1) {
-                                std::perror("epoll_ctl DEL");
-                            }
-                            clients_map.erase(it);
+                            // 普通客户端事件分支。
+                            close_connection(epollfd.get(), result.fd, clients_map);
                         }
                     }
 
@@ -309,46 +436,20 @@ int main(int argc, char const *argv[]){
                         if (!send_pending(conn)) {
                             should_close = true;
                         } else if (conn.sent == conn.size) {
-                            should_close = !modify_event(epollfd.get(), fd, EPOLLIN);
+                            conn.size = 0;  // 已发送完毕，清空缓冲区
+                            conn.sent = 0;
+                            // should_close = !modify_event(epollfd.get(), fd, EPOLLIN);
+                            should_close = !dispatch_next(conn);
                         }
                     }
                 } else if (ready & EPOLLIN) {
                     const ssize_t n = ::recv(fd, conn.output_buf, sizeof(conn.output_buf), 0);
                     if (n > 0) {
-                        conn.size = static_cast<std::size_t>(n);
-                        conn.sent = 0;
-                        //添加任务
-                        const std::string payload(conn.output_buf, conn.size);
-                        const std::uint64_t connection_id = conn.id;
+                        // 追加本次实际读到的字节，保留之前的半条请求。
+                        conn.input_buf.append(conn.output_buf, static_cast<std::size_t>(n));
 
-                        const bool accepted = pool.submit(
-                            [payload, fd, connection_id, &results, &results_mtx, notify_fd] {
-                                // 三个值按 TaskResult 的成员顺序初始化。
-                                TaskResult result{fd, connection_id, payload};
-
-                                {
-                                    std::lock_guard<std::mutex> lock(results_mtx);
-                                    results.push(std::move(result));  // 将响应移入共享队列
-                                }
-
-                                int ret;
-                                do {
-                                    ret = ::eventfd_write(notify_fd, 1);  // 入队后通知事件线程
-                                } while (ret == -1 && errno == EINTR);
-
-                                if (ret == -1 && errno != EAGAIN) {
-                                    std::perror("eventfd_write");
-                                }
-                            }
-                        );
-                        if (!accepted) {
-                            std::cerr << "统计任务提交失败\n";
-                            should_close = true;
-                        }else{
-                             // 暂停读写通知，等待工作线程返回响应。
-                            should_close = !modify_event(epollfd.get(), fd, 0);
-                        }
-                    } else if (n == 0) {
+                        should_close = !dispatch_next(conn);
+                    }else if (n == 0) {
                         should_close = true;
                     } else if (errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK) {
                         std::perror("recv");
@@ -357,12 +458,8 @@ int main(int argc, char const *argv[]){
                 }
 
                 if (should_close) {
-                    // 先取消登记
-                    if (::epoll_ctl(epollfd.get(), EPOLL_CTL_DEL, fd, nullptr) == -1) {
-                        std::perror("epoll_ctl DEL");
-                    }
-                    // 删除所有者，FdGuard 析构并关闭 Socket
-                    clients_map.erase(fd);
+                    // 工作结果处理分支，使用结果所属的客户端 fd。
+                    close_connection(epollfd.get(), fd, clients_map);
                 }
             }
         }

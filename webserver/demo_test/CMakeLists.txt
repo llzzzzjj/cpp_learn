@@ -19,6 +19,7 @@ add_subdirectory(
     "${CMAKE_CURRENT_BINARY_DIR}/threadpool-build"
     EXCLUDE_FROM_ALL
 )
+add_executable(line_test line_test.cpp)
 
 target_link_libraries(epoll_server PRIVATE threadpool)
 
@@ -32,6 +33,7 @@ target_include_directories(server_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/incl
 target_include_directories(client_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_include_directories(echo_server PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_include_directories(epoll_server PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_include_directories(line_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 # 查找线程库（配合 Threads::Threads 使用）
 find_package(Threads REQUIRED)
