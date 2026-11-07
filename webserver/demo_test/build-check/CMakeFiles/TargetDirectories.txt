@@ -1,0 +1,11 @@
+/home/lzj/cpp_learn/webserver/demo_test/build-check/CMakeFiles/server_test.dir
+/home/lzj/cpp_learn/webserver/demo_test/build-check/CMakeFiles/client_test.dir
+/home/lzj/cpp_learn/webserver/demo_test/build-check/CMakeFiles/echo_server.dir
+/home/lzj/cpp_learn/webserver/demo_test/build-check/CMakeFiles/epoll_server.dir
+/home/lzj/cpp_learn/webserver/demo_test/build-check/CMakeFiles/line_test.dir
+/home/lzj/cpp_learn/webserver/demo_test/build-check/CMakeFiles/edit_cache.dir
+/home/lzj/cpp_learn/webserver/demo_test/build-check/CMakeFiles/rebuild_cache.dir
+/home/lzj/cpp_learn/webserver/demo_test/build-check/threadpool-build/CMakeFiles/threadpool.dir
+/home/lzj/cpp_learn/webserver/demo_test/build-check/threadpool-build/CMakeFiles/threadpool_test.dir
+/home/lzj/cpp_learn/webserver/demo_test/build-check/threadpool-build/CMakeFiles/edit_cache.dir
+/home/lzj/cpp_learn/webserver/demo_test/build-check/threadpool-build/CMakeFiles/rebuild_cache.dir

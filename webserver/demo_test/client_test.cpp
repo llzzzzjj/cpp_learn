@@ -3,7 +3,6 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
-#include <unistd.h>
 #include <cerrno>
 #include <vector>
 #include <thread>
@@ -59,9 +58,8 @@ int main() {
         std::string line;
         while(std::getline(std::cin, line)) {
             line += '\n';
-            ssize_t n = ::send(server_fd.get(), line.data(), line.size(), 0);
-            if(n < 0) {
-                if(errno == EINTR) continue;
+            // send_all 内部处理短发送和 EINTR，保证整行发完。
+            if(!send_all(server_fd.get(), line.data(), line.size())) {
                 std::cerr << "[send error] " << strerror(errno) << std::endl;
                 break;
             }

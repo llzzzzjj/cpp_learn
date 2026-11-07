@@ -31,17 +31,3 @@ target_link_libraries(server PRIVATE common)
 
 add_executable(client src/client.cpp)
 target_link_libraries(client PRIVATE common)
-
-# ───────────────────────── 学习用的 demo ─────────────────────────
-# 不需要时：cmake -DBUILD_DEMOS=OFF ..
-option(BUILD_DEMOS "Build the programs under demo_test/" ON)
-
-if(BUILD_DEMOS)
-    # 修正后的完整版本
-    add_executable(server_demo demo_test/server_demo.cpp)
-    target_link_libraries(server_demo PRIVATE common)
-
-    # 早期的 pthread 版本（保留用于对照，带已知警告）
-    add_executable(server_test demo_test/server_test.cpp)
-    target_link_libraries(server_test PRIVATE common)
-endif()

@@ -10,9 +10,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON) # 强制要求该标准
 set(CMAKE_CXX_EXTENSIONS OFF)       # 关闭gcc扩展，标准C++
 
 # 4. 生成可执行文件：add_executable(目标名 源文件列表)
-add_executable(server_test server_test.cpp socket_utils.cpp)
 add_executable(client_test client_test.cpp socket_utils.cpp)
-add_executable(echo_server echo_server.cpp socket_utils.cpp)
 add_executable(epoll_server epoll_server.cpp socket_utils.cpp)
 add_subdirectory(
     "${CMAKE_CURRENT_SOURCE_DIR}/../../threadpool"
@@ -25,13 +23,9 @@ target_link_libraries(epoll_server PRIVATE threadpool)
 
 # 5.添加头文件搜索路径
 
-# target_include_directories(server_test PRIVATE ${PROJECT_SOURCE_DIR}/include)
 # target_include_directories(client_test PRIVATE ${PROJECT_SOURCE_DIR}/include)
-# target_include_directories(echo_server PRIVATE ${PROJECT_SOURCE_DIR}/include)
 # target_include_directories(epoll_server PRIVATE ${PROJECT_SOURCE_DIR}/include)
-target_include_directories(server_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_include_directories(client_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
-target_include_directories(echo_server PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_include_directories(epoll_server PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_include_directories(line_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
@@ -39,13 +33,10 @@ target_include_directories(line_test PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/includ
 find_package(Threads REQUIRED)
 
 # 6. 链接库（线程库pthread，写TCP多线程必备！）
-target_link_libraries(server_test PRIVATE Threads::Threads)
-target_compile_options(server_test PRIVATE -Wall -Wextra -Wpedantic)
 
 target_link_libraries(client_test PRIVATE Threads::Threads)
 target_compile_options(client_test PRIVATE -Wall -Wextra -Wpedantic)
 
-target_compile_options(echo_server PRIVATE -Wall -Wextra -Wpedantic)
 
 target_compile_options(epoll_server PRIVATE -Wall -Wextra -Wpedantic)
 
