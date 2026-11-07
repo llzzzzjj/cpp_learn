@@ -11,7 +11,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)       # 关闭gcc扩展，标准C++
 
 # 4. 生成可执行文件：add_executable(目标名 源文件列表)
 add_executable(client_test client_test.cpp socket_utils.cpp)
-add_executable(epoll_server epoll_server.cpp socket_utils.cpp)
+add_executable(epoll_server
+    epoll_server.cpp
+    epoll_server_handlers.cpp
+)
 add_subdirectory(
     "${CMAKE_CURRENT_SOURCE_DIR}/../../threadpool"
     "${CMAKE_CURRENT_BINARY_DIR}/threadpool-build"
