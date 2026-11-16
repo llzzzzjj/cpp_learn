@@ -3,7 +3,9 @@
 #include <cstddef>
 #include <string>
 
+// 从 input_buf 提取第一行（包含换行）到 line，保留后续字节。
 inline bool extract_line(std::string& input_buf, std::string& line) {
+    // pos 是换行的下标，npos 表示当前缓冲区还没有完整请求。
     const auto pos = input_buf.find('\n');
 
     if (pos == std::string::npos) {

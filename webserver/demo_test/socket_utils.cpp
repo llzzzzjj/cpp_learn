@@ -3,7 +3,9 @@
 #include <sys/socket.h>
 #include <cerrno>
 
+// data 指向待发数据，length 是总字节数，fd 由调用者持有。
 bool send_all(int fd, const char* data, std::size_t length) {
+    // sent 同时记录已发字节数和下一次发送的起始偏移。
     std::size_t sent = 0;
 
     while (sent < length) {

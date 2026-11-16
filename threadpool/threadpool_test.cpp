@@ -7,6 +7,7 @@
 #include <condition_variable>
 #include <stdexcept>
 
+// 占住唯一工作线程，确定性地验证队列填满后拒绝下一条任务。
 bool test_queue_full(){
     //测试用参数
     bool started = false; //任务 a 已经开始运行
@@ -85,6 +86,7 @@ bool test_queue_full(){
 
     return passed;
 };
+// 验证主动停止会等已有任务结束，并且之后拒绝提交。
 bool test_shutdown(){
     std::atomic<int> completed{0};
     ThreadPool pool(2);
@@ -126,6 +128,7 @@ bool test_shutdown(){
 
     return passed;
 };
+// 验证未绑定可调用对象的 Task 会被拒绝。
 bool test_empty_task() {
     ThreadPool pool(2);
 
@@ -144,6 +147,7 @@ bool test_empty_task() {
     return passed;
 }
 
+// 让一个任务抛异常，验证同一个工作线程还能处理后续任务。
 bool test_exception_recovery() {
     std::atomic<int> completed{0};
     ThreadPool pool(1);
@@ -171,6 +175,7 @@ bool test_exception_recovery() {
     return passed;
 }
 
+// 多个生产者并发提交，核对提交结果与实际完成数量。
 bool test_multiple_producers() {
     constexpr int tasks_per_producer = 1000;
     constexpr int total_attempts = tasks_per_producer * 2;

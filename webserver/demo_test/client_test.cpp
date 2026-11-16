@@ -22,7 +22,9 @@ void handle_error(const std::string& what, int ret) {
     }
 }
 
+// 接收线程借用 client_fd 并打印响应，由 main() 管理 Socket 的寿命。
 void recv_from_server(int client_fd) {
+    // 一次 recv 的临时缓冲区，打印时只使用实际收到的字节数。
     std::vector<char> buf(1024);
     while(true) {
         ssize_t n = ::recv(client_fd, buf.data(), buf.size(), 0);
@@ -38,7 +40,6 @@ void recv_from_server(int client_fd) {
             break;
         }
     }
-    // ::close(client_fd);
 }
 
 int main() {
@@ -54,8 +55,10 @@ int main() {
         handle_error("connect", ::connect(server_fd.get(), reinterpret_cast<const sockaddr*>(&server_addr), sizeof(server_addr)));
         std::cout << "已连接到服务端 " << kServerIp << ":" << kPort << std::endl;
 
+        // 接收线程可在主线程等待用户输入时继续收响应。
         std::thread recv_th(recv_from_server, server_fd.get());
 
+        // 保存终端读入的一行，发送前补上协议要求的换行。
         std::string line;
         while(std::getline(std::cin, line)) {
             line += '\n';

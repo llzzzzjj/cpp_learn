@@ -2,6 +2,7 @@
 #include <string>
 #include "line_parser.hpp"
 
+// 在内存中模拟分段和连续到达的请求，无需启动服务端。
 int main() {
     std::string input_buf = "hel";
     std::string line;

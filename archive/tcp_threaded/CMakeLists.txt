@@ -31,3 +31,7 @@ target_link_libraries(server PRIVATE common)
 
 add_executable(client src/client.cpp)
 target_link_libraries(client PRIVATE common)
+
+add_executable(echo_server tcp_blocking/echo_server.cpp)
+target_link_libraries(echo_server PRIVATE common)
+

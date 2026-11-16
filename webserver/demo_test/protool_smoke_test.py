@@ -1,5 +1,6 @@
 import socket
 
+# 在同一连接中提交正常、异常、正常三条请求，检查异常后的继续处理。
 requests = b"hello\nfail\nworld\n"      # 三条以换行结尾的请求
 expected = b"HELLO\nERR\nWORLD\n"        # 按请求顺序期待的响应
 

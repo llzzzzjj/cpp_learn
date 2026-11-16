@@ -13,6 +13,7 @@
 #include <stdexcept>
 
 namespace {
+// 业务函数接收一条完整请求，返回带换行的响应。
 std::string process_request(const std::string& input) {
     // 收到 fail 加换行时，故意抛异常，用于验证错误处理。
     if (input == "fail\n") {
@@ -30,6 +31,7 @@ std::string process_request(const std::string& input) {
 }
 }
 
+// 主线程接入一个新连接，为它注册可读事件并分配连接编号。
 void EpollServer::on_accept_ready() {
     // 从监听 Socket 接受一个新连接，拿到客户端的 fd。
     const int raw_fd = ::accept(listen_fd_.get(), nullptr, nullptr);
@@ -54,6 +56,7 @@ void EpollServer::on_accept_ready() {
               << ", id=" << conn.id << '\n';
 }
 
+// fd 是客户端 Socket，ready 是 epoll_wait 返回的就绪标志。
 void EpollServer::on_client_ready(int fd, std::uint32_t ready) {
     auto it = clients_.find(fd);
     if (it == clients_.end()) {
@@ -61,6 +64,7 @@ void EpollServer::on_client_ready(int fd, std::uint32_t ready) {
     }
 
     Connection& conn = it->second;
+    // 统一记录当前事件是否要求关闭连接。
     bool should_close = false;
 
     if (ready & (EPOLLERR | EPOLLHUP)) {
@@ -100,10 +104,12 @@ void EpollServer::on_client_ready(int fd, std::uint32_t ready) {
     }
 }
 
+// 非阻塞发送一次。返回 true 表示连接可以继续，可能还有字节待发。
 bool EpollServer::send_pending(Connection& conn) {
     if (conn.sent == conn.size) {
         return true;  // 没有剩余字节
     }
+    // 起始地址跳过已发送部分，长度只计算尚未发送的字节。
     const ssize_t n = ::send(
         conn.socket.get(),
         conn.output_buf + conn.sent,
@@ -123,7 +129,9 @@ bool EpollServer::send_pending(Connection& conn) {
     return false;
 }
 
+// 主线程从连接缓冲区尝试提取一行，按需恢复读关注或提交工作任务。
 bool EpollServer::dispatch_next(Connection& conn) {
+    // request 接收 extract_line 提取出的完整请求。
     std::string request;
     const int fd = conn.socket.get();
 
@@ -146,7 +154,8 @@ bool EpollServer::dispatch_next(Connection& conn) {
     // 请求和连接身份由任务持有，结果队列和锁由服务器持有。
     auto& results = results_;
     auto& results_mtx = results_mtx_;
-    const int notify_fd = result_event_.get();
+    const int notify_fd = result_event_fd.get();
+    // accepted 表示任务是否入队成功，工作线程可能还没开始执行。
     const bool accepted = pool_.submit(
         [request, fd, connection_id, &results, &results_mtx, notify_fd] {
             // 工作线程稍后执行。请求和连接身份都按值捕获。
@@ -164,6 +173,7 @@ bool EpollServer::dispatch_next(Connection& conn) {
     return modify_event(fd, 0);
 }
 
+// 工作线程执行此函数。result 已包含目标连接信息和默认错误响应。
 void EpollServer::process_and_publish(const std::string& request,
                                       TaskResult result,
                                       std::queue<TaskResult>& results,
@@ -195,10 +205,11 @@ void EpollServer::process_and_publish(const std::string& request,
     }
 }
 
+// 主线程收取一批工作结果，为仍有效的连接开启 EPOLLOUT。
 void EpollServer::on_result_ready() {
     // 读取通知计数。响应数据保存在 results 队列里。
     eventfd_t notices = 0;
-    if (::eventfd_read(result_event_.get(), &notices) == -1) {
+    if (::eventfd_read(result_event_fd.get(), &notices) == -1) {
         if (errno == EINTR || errno == EAGAIN) {
             return;  // 结束这次通知处理。
         }
@@ -248,6 +259,7 @@ void EpollServer::on_result_ready() {
     }
 }
 
+// 主线程统一取消事件登记并释放客户端 Socket。
 void EpollServer::close_connection(int fd) {
     // 取消这个客户端的事件登记。
     if (::epoll_ctl(epoll_fd_.get(), EPOLL_CTL_DEL, fd, nullptr) == -1) {

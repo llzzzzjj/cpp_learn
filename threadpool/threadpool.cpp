@@ -39,6 +39,7 @@ ThreadPool::ThreadPool(
     }
 }
 
+// 提交者持锁完成容量检查和入队，解锁后唤醒一个工作线程。
 bool ThreadPool::submit(Task task){
     // 拒绝没有保存任何函数的空任务
     if (!task) {
@@ -59,6 +60,7 @@ bool ThreadPool::submit(Task task){
     cv_.notify_one();
     return true;
 }
+// 工作线程持锁取任务，解锁后执行，避免长任务占用队列锁。
 void ThreadPool::worker_loop() {
     while (true) {
         Task task;
@@ -70,6 +72,7 @@ void ThreadPool::worker_loop() {
                 return !tasks_.empty() || stopping_;
             });
 
+            // 开始停止且任务已取完时，这个工作线程才退出。
             if(tasks_.empty() && stopping_){
                 break;
             }
@@ -92,6 +95,7 @@ void ThreadPool::worker_loop() {
     }
 }
 
+// 关闭提交入口，唤醒等待线程，并等它们处理完已有任务。
 void ThreadPool::shutdown() {
     {
         // 持有 mtx_，设置 stopping_ = true。

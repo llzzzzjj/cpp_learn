@@ -8,6 +8,7 @@
  */
 class FdGuard{
 public:
+    // 接管传入的 fd，调用者随后应通过 get() 借用它。
     explicit FdGuard(int fd):fd_(fd){};
     ~FdGuard(){
         if(fd_ >= 0){
@@ -16,7 +17,7 @@ public:
     }
     //禁止拷贝
     /**
-     * fd 是独占资源，如果允许拷贝，两个FdGuard持有同一fd，析构时会 close 两次，UB
+     * fd 是独占资源，如果允许拷贝，两个 FdGuard 会重复关闭同一个 fd，可能误关后来复用该编号的资源。
     */
     FdGuard(const FdGuard&) = delete;
     FdGuard& operator=(const FdGuard&) = delete;
@@ -44,6 +45,7 @@ public:
         return *this;
     }
 
+    // 借出 fd 数值，关闭责任仍由当前 FdGuard 持有。
     int get()const {return fd_;}
     //释放所有权，返回fd
     int realse(){
@@ -53,5 +55,6 @@ public:
     }
 
 private:
+    // -1 表示当前对象没有 fd 的关闭责任。
     int fd_;
 };
