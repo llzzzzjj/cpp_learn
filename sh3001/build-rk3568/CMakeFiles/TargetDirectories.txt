@@ -1,0 +1,3 @@
+/home/lzj/cpp_learn/sh3001/build-rk3568/CMakeFiles/gyro_cpp.dir
+/home/lzj/cpp_learn/sh3001/build-rk3568/CMakeFiles/edit_cache.dir
+/home/lzj/cpp_learn/sh3001/build-rk3568/CMakeFiles/rebuild_cache.dir
