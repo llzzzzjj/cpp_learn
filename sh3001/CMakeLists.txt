@@ -13,4 +13,8 @@ target_include_directories(gyro_cpp PRIVATE
     "${CMAKE_CURRENT_SOURCE_DIR}/../webserver/demo_test/include"
 )
 
+# 给测试中的 std::thread 配置线程支持。
+find_package(Threads REQUIRED)
+target_link_libraries(gyro_cpp PRIVATE Threads::Threads)
+
 target_compile_options(gyro_cpp PRIVATE -Wall -Wextra)

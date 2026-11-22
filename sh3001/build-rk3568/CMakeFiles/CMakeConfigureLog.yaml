@@ -273,3 +273,43 @@ events:
       
       
 ...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "/usr/share/cmake-3.28/Modules/Internal/CheckSourceCompiles.cmake:101 (try_compile)"
+      - "/usr/share/cmake-3.28/Modules/CheckCXXSourceCompiles.cmake:52 (cmake_check_source_compiles)"
+      - "/usr/share/cmake-3.28/Modules/FindThreads.cmake:99 (CHECK_CXX_SOURCE_COMPILES)"
+      - "/usr/share/cmake-3.28/Modules/FindThreads.cmake:163 (_threads_check_libc)"
+      - "CMakeLists.txt:17 (find_package)"
+    checks:
+      - "Performing Test CMAKE_HAVE_LIBC_PTHREAD"
+    directories:
+      source: "/home/lzj/cpp_learn/sh3001/build-rk3568/CMakeFiles/CMakeScratch/TryCompile-c20vVa"
+      binary: "/home/lzj/cpp_learn/sh3001/build-rk3568/CMakeFiles/CMakeScratch/TryCompile-c20vVa"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: ""
+      CMAKE_CXX_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+    buildResult:
+      variable: "CMAKE_HAVE_LIBC_PTHREAD"
+      cached: true
+      stdout: |
+        Change Dir: '/home/lzj/cpp_learn/sh3001/build-rk3568/CMakeFiles/CMakeScratch/TryCompile-c20vVa'
+        
+        Run Build Command(s): /usr/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_10337/fast
+        gmake[1]: 进入目录“/home/lzj/cpp_learn/sh3001/build-rk3568/CMakeFiles/CMakeScratch/TryCompile-c20vVa”
+        /usr/bin/gmake  -f CMakeFiles/cmTC_10337.dir/build.make CMakeFiles/cmTC_10337.dir/build
+        gmake[2]: 进入目录“/home/lzj/cpp_learn/sh3001/build-rk3568/CMakeFiles/CMakeScratch/TryCompile-c20vVa”
+        Building CXX object CMakeFiles/cmTC_10337.dir/src.cxx.o
+        /opt/atk-dlrk356x-toolchain/usr/bin/aarch64-buildroot-linux-gnu-g++ -DCMAKE_HAVE_LIBC_PTHREAD   -o CMakeFiles/cmTC_10337.dir/src.cxx.o -c /home/lzj/cpp_learn/sh3001/build-rk3568/CMakeFiles/CMakeScratch/TryCompile-c20vVa/src.cxx
+        Linking CXX executable cmTC_10337
+        /usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_10337.dir/link.txt --verbose=1
+        /opt/atk-dlrk356x-toolchain/usr/bin/aarch64-buildroot-linux-gnu-g++ CMakeFiles/cmTC_10337.dir/src.cxx.o -o cmTC_10337 
+        gmake[2]: 离开目录“/home/lzj/cpp_learn/sh3001/build-rk3568/CMakeFiles/CMakeScratch/TryCompile-c20vVa”
+        gmake[1]: 离开目录“/home/lzj/cpp_learn/sh3001/build-rk3568/CMakeFiles/CMakeScratch/TryCompile-c20vVa”
+        
+      exitCode: 0
+...

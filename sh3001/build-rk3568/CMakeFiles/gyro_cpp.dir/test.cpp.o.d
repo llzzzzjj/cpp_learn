@@ -1,6 +1,6 @@
 CMakeFiles/gyro_cpp.dir/test.cpp.o: /home/lzj/cpp_learn/sh3001/test.cpp \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/stdc-predef.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/cerrno \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/exception \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/aarch64-buildroot-linux-gnu/bits/c++config.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/aarch64-buildroot-linux-gnu/bits/os_defines.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/features.h \
@@ -13,63 +13,11 @@ CMakeFiles/gyro_cpp.dir/test.cpp.o: /home/lzj/cpp_learn/sh3001/test.cpp \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/gnu/stubs-lp64.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/aarch64-buildroot-linux-gnu/bits/cpu_defines.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/pstl/pstl_config.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/errno.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/errno.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/linux/errno.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/asm/errno.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/asm-generic/errno.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/asm-generic/errno-base.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/error_t.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/cstddef \
- /opt/atk-dlrk356x-toolchain/lib/gcc/aarch64-buildroot-linux-gnu/10.3.0/include/stddef.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/cstdint \
- /opt/atk-dlrk356x-toolchain/lib/gcc/aarch64-buildroot-linux-gnu/10.3.0/include/stdint.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/stdint.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/libc-header-start.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/typesizes.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/time64.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/wchar.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/stdint-intn.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/stdint-uintn.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/cstdlib \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/stdlib.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/waitflags.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/waitstatus.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/floatn.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/floatn-common.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/locale_t.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/__locale_t.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/sys/types.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/clock_t.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/clockid_t.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/time_t.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/timer_t.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/endian.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/endian.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/endianness.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/byteswap.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/uintn-identity.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/sys/select.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/select.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/sigset_t.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/__sigset_t.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/struct_timeval.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/struct_timespec.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/pthreadtypes.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/thread-shared-types.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/pthreadtypes-arch.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/atomic_wide_counter.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/struct_mutex.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/struct_rwlock.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/alloca.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/stdlib-float.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/std_abs.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/exception \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/exception.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/exception_ptr.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/exception_defines.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/cxxabi_init_exception.h \
+ /opt/atk-dlrk356x-toolchain/lib/gcc/aarch64-buildroot-linux-gnu/10.3.0/include/stddef.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/typeinfo \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/hash_bytes.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/new \
@@ -85,12 +33,18 @@ CMakeFiles/gyro_cpp.dir/test.cpp.o: /home/lzj/cpp_learn/sh3001/test.cpp \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/postypes.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/cwchar \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/wchar.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/libc-header-start.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/floatn.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/floatn-common.h \
  /opt/atk-dlrk356x-toolchain/lib/gcc/aarch64-buildroot-linux-gnu/10.3.0/include/stdarg.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/wchar.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/wint_t.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/mbstate_t.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/__mbstate_t.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/__FILE.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/FILE.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/locale_t.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/__locale_t.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/char_traits.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/stl_algobase.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/functexcept.h \
@@ -106,6 +60,14 @@ CMakeFiles/gyro_cpp.dir/test.cpp.o: /home/lzj/cpp_learn/sh3001/test.cpp \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/ptr_traits.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/debug/debug.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/predefined_ops.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/cstdint \
+ /opt/atk-dlrk356x-toolchain/lib/gcc/aarch64-buildroot-linux-gnu/10.3.0/include/stdint.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/stdint.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/typesizes.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/time64.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/stdint-intn.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/stdint-uintn.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/localefwd.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/aarch64-buildroot-linux-gnu/bits/c++locale.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/clocale \
@@ -113,21 +75,36 @@ CMakeFiles/gyro_cpp.dir/test.cpp.o: /home/lzj/cpp_learn/sh3001/test.cpp \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/locale.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/cctype \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/ctype.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/endian.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/endianness.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/ios_base.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/ext/atomicity.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/aarch64-buildroot-linux-gnu/bits/gthr.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/aarch64-buildroot-linux-gnu/bits/gthr-default.h \
  /opt/atk-dlrk356x-toolchain/lib/gcc/aarch64-buildroot-linux-gnu/10.3.0/include-fixed/pthread.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/sched.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/time_t.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/struct_timespec.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/sched.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/struct_sched_param.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/cpu-set.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/time.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/time.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/timex.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/struct_timeval.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/clock_t.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/struct_tm.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/clockid_t.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/timer_t.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/struct_itimerspec.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/pthreadtypes.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/thread-shared-types.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/pthreadtypes-arch.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/atomic_wide_counter.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/struct_mutex.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/struct_rwlock.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/setjmp.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/__sigset_t.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/struct___jmp_buf_tag.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/pthread_stack_min-dynamic.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/aarch64-buildroot-linux-gnu/bits/atomic_word.h \
@@ -153,6 +130,20 @@ CMakeFiles/gyro_cpp.dir/test.cpp.o: /home/lzj/cpp_learn/sh3001/test.cpp \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/functional_hash.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/string_view.tcc \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/ext/string_conversions.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/cstdlib \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/stdlib.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/waitflags.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/waitstatus.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/sys/types.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/endian.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/byteswap.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/uintn-identity.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/sys/select.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/select.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/sigset_t.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/alloca.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/stdlib-float.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/std_abs.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/cstdio \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/stdio.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/__fpos_t.h \
@@ -160,6 +151,14 @@ CMakeFiles/gyro_cpp.dir/test.cpp.o: /home/lzj/cpp_learn/sh3001/test.cpp \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/struct_FILE.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/cookie_io_functions_t.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/stdio_lim.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/cerrno \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/errno.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/errno.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/linux/errno.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/asm/errno.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/asm-generic/errno.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/asm-generic/errno-base.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/types/error_t.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/charconv.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/basic_string.tcc \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/locale_classes.tcc \
@@ -181,9 +180,6 @@ CMakeFiles/gyro_cpp.dir/test.cpp.o: /home/lzj/cpp_learn/sh3001/test.cpp \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/ostream.tcc \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/istream \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/istream.tcc \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/cstring \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/string.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/strings.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/vector \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/stl_uninitialized.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/stl_vector.h \
@@ -224,34 +220,31 @@ CMakeFiles/gyro_cpp.dir/test.cpp.o: /home/lzj/cpp_learn/sh3001/test.cpp \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/backward/auto_ptr.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/pstl/glue_memory_defs.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/pstl/execution_defs.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/functional \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/std_function.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/unordered_map \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/hashtable.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/hashtable_policy.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/node_handle.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/optional \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/enable_special_members.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/unordered_map.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/erase_if.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/stl_algo.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/algorithmfwd.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/stl_heap.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/bits/uniform_int_dist.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/thread \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/cstddef \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/include/c++/10.3.0/cstring \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/string.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/strings.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/dirent.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/dirent.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/posix1_lim.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/local_lim.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/linux/limits.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/dirent_ext.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/linux/input.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/sys/time.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/sys/ioctl.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/ioctls.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/asm/ioctls.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/asm-generic/ioctls.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/linux/ioctl.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/asm/ioctl.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/asm-generic/ioctl.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/ioctl-types.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/sys/ttydefaults.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/linux/types.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/asm/types.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/asm-generic/types.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/asm-generic/int-ll64.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/asm/bitsperlong.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/asm-generic/bitsperlong.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/linux/posix_types.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/linux/stddef.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/asm/posix_types.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/asm-generic/posix_types.h \
- /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/linux/input-event-codes.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/unistd.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/posix_opt.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/environments.h \
@@ -266,4 +259,31 @@ CMakeFiles/gyro_cpp.dir/test.cpp.o: /home/lzj/cpp_learn/sh3001/test.cpp \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/linux/falloc.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/stat.h \
  /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/struct_stat.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/sys/ioctl.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/ioctls.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/asm/ioctls.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/asm-generic/ioctls.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/linux/ioctl.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/asm/ioctl.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/asm-generic/ioctl.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/ioctl-types.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/sys/ttydefaults.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/poll.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/sys/poll.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/poll.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/linux/input.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/sys/time.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/linux/types.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/asm/types.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/asm-generic/types.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/asm-generic/int-ll64.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/asm/bitsperlong.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/asm-generic/bitsperlong.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/linux/posix_types.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/linux/stddef.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/asm/posix_types.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/asm-generic/posix_types.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/linux/input-event-codes.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/sys/eventfd.h \
+ /opt/atk-dlrk356x-toolchain/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/eventfd.h \
  /home/lzj/cpp_learn/sh3001/fd.hpp

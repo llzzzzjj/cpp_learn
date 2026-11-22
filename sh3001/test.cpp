@@ -1,11 +1,6 @@
-#include <cerrno>
-#include <cstddef>
-#include <cstdint>
-#include <cstdlib>
 #include <exception>
 #include <iostream>
 #include <string>
-#include <cstring>
 #include <system_error>
 #include <vector>
 #include <sstream>
@@ -13,17 +8,34 @@
 #include <stdexcept>
 #include <chrono>
 #include <memory>
+#include <functional>
+#include <thread>
+#include <deque>
 
+#include <cerrno>
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
+#include <cstring>
+#include <cstdio>
+
+// POSIX / Unix 系统头文件
 #include <dirent.h>
-#include <linux/input.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
+#include <poll.h>
+
+// Linux 专有内核头文件
+#include <linux/input.h>
+#include <sys/eventfd.h>
 
 #include "fd.hpp"  // 复用 epoll 项目里的 FdGuard
 
 constexpr std::size_t kSampleCount = 100;
 constexpr unsigned long kSetGyroEnable = _IOW(77, 2, int);
+// 沿用官方 C 用例的光照启停请求码。
+constexpr unsigned long kSetLightEnable = _IOW('l', 2, int*);
 
 struct GyroOffsets {
     int x;
@@ -71,7 +83,7 @@ GyroOffsets read_gyro_offsets() {
 }
 
 //寻找陀螺仪"gyro"匹配的那个节点
-FdGuard open_gyro_input() {
+FdGuard open_input_by_name(const char* device_name,int extra_flags = 0) {
     const auto close_directory = [](DIR* directory) {
         ::closedir(directory);
     };
@@ -89,7 +101,7 @@ FdGuard open_gyro_input() {
         }
         // TODO 2：用 openat(dirfd(directory.get()), entry->d_name, O_RDONLY)
         //         打开候选节点，用 FdGuard 接管；打不开就继续找。
-        FdGuard candidate(::openat(dirfd(directory.get()), entry->d_name, O_RDONLY | O_CLOEXEC));
+        FdGuard candidate(::openat(dirfd(directory.get()), entry->d_name, O_RDONLY | O_CLOEXEC | extra_flags));
         if (candidate.get() < 0) {
             continue;   // 可能权限不足，跳过
         }
@@ -99,19 +111,21 @@ FdGuard open_gyro_input() {
         if (::ioctl(candidate.get(), EVIOCGNAME(sizeof(name) - 1), name) < 0) {
             continue;
         }
-        if (std::strcmp(name, "gyro") == 0) {
+        if (std::strcmp(name, device_name) == 0) {
             return candidate;
         }
     }
 
-    throw std::runtime_error("未找到名为 gyro 的输入设备");
+    throw std::runtime_error(std::string("未找到输入设备:") + device_name);
 }
 
-std::vector<GyroSample> capture_samples(int input_fd,
-                                        std::size_t sample_count);
+FdGuard open_gyro_input(int extra_flag = 0) {
+    return open_input_by_name("gyro", extra_flag);
+}
 
-void print_samples(const std::vector<GyroSample>& samples,
-                   const GyroOffsets& offsets);
+std::vector<GyroSample> capture_samples(int input_fd, std::size_t sample_count);
+
+void print_samples(const std::vector<GyroSample>& samples, const GyroOffsets& offsets);
 
 // 借用控制节点的 fd。构造时启动上报，析构时关闭上报。
 class GyroSession {
@@ -125,6 +139,33 @@ public:
 private:
     int control_fd_;
 };
+class LightSession {
+public:
+    explicit LightSession(int control_fd);
+    ~LightSession() noexcept;
+
+    LightSession(const LightSession&) = delete;
+    LightSession& operator=(const LightSession&) = delete;
+
+private:
+    int control_fd_;
+};
+LightSession::LightSession(int control_fd) : control_fd_(control_fd) {
+    // 借用控制 fd，并请求驱动开启光照上报。
+    int enable = 1;
+    if (::ioctl(control_fd_, kSetLightEnable, &enable) < 0) {
+        const int error = errno;
+        throw std::system_error(error, std::generic_category(), "LightSession: enable light");
+    }
+}
+
+LightSession::~LightSession() noexcept {
+    // 请求停止上报；控制 fd 由外层的 FdGuard 关闭。
+    int enable = 0;
+    if (::ioctl(control_fd_, kSetLightEnable, &enable) < 0) {
+        std::perror("LightSession: disable light");
+    }
+}
 GyroSession::GyroSession(int control_fd) : control_fd_(control_fd) {
     // TODO：准备一个值为 1 的 int，取地址传给 ioctl。
     int enable = 1;
@@ -143,9 +184,28 @@ GyroSession::~GyroSession() noexcept {
     const int enable = 0;
     if (::ioctl(control_fd_, kSetGyroEnable, &enable) < 0) {
         const int err = errno;
-        std::fprintf(stderr, "GyroSession: disable gyro failed: %s\n",
-                     std::strerror(err));
+        std::fprintf(stderr, "GyroSession: disable gyro failed: %s\n", std::strerror(err));
     }
+}
+
+struct GyroAxes {
+    int x = 0;
+    int y = 0;
+    int z = 0;
+};
+
+bool consume_gyro_event(const input_event& event, GyroAxes& axes) {
+
+    if(event.type == EV_ABS) {
+        switch(event.code){
+            case ABS_RX: axes.x = event.value; break;
+            case ABS_RY: axes.y = event.value; break;
+            case ABS_RZ: axes.z = event.value; break;
+            default: break;
+        }
+        return false;
+    }
+    return event.type == EV_SYN && event.code == SYN_REPORT;
 }
 
 std::vector<GyroSample> capture_samples(int input_fd,
@@ -155,44 +215,34 @@ std::vector<GyroSample> capture_samples(int input_fd,
 
     // TODO 1：用 steady_clock 记录开始时间，初始化三轴当前值。
     const auto start = std::chrono::steady_clock::now(); //记录开始时间
-    std::int32_t gx = 0, gy = 0, gz = 0;
+    // std::int32_t gx = 0, gy = 0, gz = 0;
 
     // TODO 2：循环读取 input_event，直到 samples.size() == sample_count。
     //         read 被 EINTR 打断就重试；其他错误或未读到完整事件就报错。
+    GyroAxes axes{};
     while(samples.size() < sample_count) {
         struct input_event ev{};
         ssize_t n;
         do{
-            n = ::read(input_fd,&ev,sizeof(ev));
+            n = ::read(input_fd, &ev, sizeof(ev));
         }while(n < 0 && errno == EINTR);
         if (n < 0) {
             const int err = errno;
-            throw std::system_error(err, std::generic_category(),
-                                    "capture_samples: read input_event");
+            throw std::system_error(err, std::generic_category(),"capture_samples: read input_event");
         }
         if (n != static_cast<ssize_t>(sizeof(ev))) {
-            // (返回值为0) ---> 这次未读到数据；
-            // (返回值 < sizeof) ---> 部分读
-            throw std::runtime_error(
-                "capture_samples: short read from input device");
+            // (返回值为0) ---> 这次未读到数据；(返回值 < sizeof) ---> 部分读
+            throw std::runtime_error("capture_samples: short read from input device");
         }
     
         // TODO 3：EV_ABS 下按 ABS_RX / ABS_RY / ABS_RZ 更新对应轴。
-        if(ev.type == EV_ABS) {
-            switch(ev.code){
-                case ABS_RX: gx = ev.value; break;
-                case ABS_RY: gy = ev.value; break;
-                case ABS_RZ: gz = ev.value; break;
-                default: break;
-            }
-        }
         // TODO 4：遇到 EV_SYN + SYN_REPORT，计算已过的微秒数，
         //         将时间和当前三轴值一起放入 samples。
         //         保存后保留三轴当前值，因为下一组不一定上报所有轴。
-        if(ev.type == EV_SYN && ev.code == SYN_REPORT) {
+        if(consume_gyro_event(ev, axes)) {
             const auto now = std::chrono::steady_clock::now();
             const auto us = std::chrono::duration_cast<std::chrono::microseconds>(now - start).count();
-            samples.push_back(GyroSample{static_cast<std::int64_t>(us), gx, gy, gz});
+            samples.push_back(GyroSample{static_cast<std::int64_t>(us), axes.x, axes.y, axes.z});
         }
     }
     return samples;
@@ -202,6 +252,8 @@ void print_samples(const std::vector<GyroSample>& samples,
                    const GyroOffsets& offsets) {
     constexpr double kCountPerDegPerSec = 16.384; // 按照+-2000dps量程来计算  以角度/每秒单位进行计算 32768/2000 = 16.384
     // TODO：遍历 samples，按官方 demo 的量程设置，
+    //       每轴用 (原始值 - 对应轴偏移) / 16.384 换算角速度。
+    //       每行输出 elapsed_us、X、Y、Z，标明单位 μs 和 °/s。
     for(const auto& s : samples){
         const double calib_x = (static_cast<double>(s.x) - offsets.x) / kCountPerDegPerSec; 
         const double calib_y = (static_cast<double>(s.y) - offsets.y) / kCountPerDegPerSec; 
@@ -211,19 +263,523 @@ void print_samples(const std::vector<GyroSample>& samples,
                     "y = "<< calib_y <<"°/s "
                     "z = "<< calib_z <<"°/s \n";
     }
-    //       每轴用 (原始值 - 对应轴偏移) / 16.384 换算角速度。
-    //       每行输出 elapsed_us、X、Y、Z，标明单位 μs 和 °/s。
-    (void)samples;
-    (void)offsets;
 }
-int main() {
+struct LightSample {
+    std::int64_t elapsed_us;  // 本次双路采集开始后经过的微秒数。
+    int level;                // 驱动上报的光照等级，0 也是有效值。
+};
+
+// 每收到一个有效光照事件，就调用一次这个函数。
+using LightSampleHandler = std::function<void(const LightSample&)>;
+
+using GyroSampleHandler = std::function<void(const GyroSample&)>;
+
+void capture_continuously(int input_fd, int stop_fd, const GyroSampleHandler& on_sample) {
+    GyroAxes axes{};
+    const auto start = std::chrono::steady_clock::now();
+
+    pollfd watched[] = {
+        {stop_fd,  POLLIN, 0},
+        {input_fd, POLLIN, 0},
+    };
+
+    for (;;) {
+        int ready;
+        do {
+            ready = ::poll(watched, 2, -1);
+        } while (ready < 0 && errno == EINTR);
+
+        if (ready < 0) {
+            const int error = errno;
+            throw std::system_error(error, std::generic_category(),
+                                    "capture_continuously: poll");
+        }
+
+        if (watched[0].revents & POLLIN) {
+            return;
+        }
+
+        const short error_flags = POLLERR | POLLHUP | POLLNVAL;
+        if ((watched[0].revents | watched[1].revents) & error_flags) {
+            throw std::runtime_error("capture_continuously: fd unavailable");
+        }
+
+        if (!(watched[1].revents & POLLIN)) {
+            continue;
+        }
+
+        input_event event{};
+        // TODO 1：从 input_fd 读一条完整事件。EINTR 重试；F
+        //         EAGAIN 回到 poll；其余错误或未读到完整事件就报错。
+        ssize_t bytes_read;
+        do {
+            bytes_read = ::read(input_fd, &event, sizeof(event));
+        } while (bytes_read < 0 && errno == EINTR);
+
+        if (bytes_read < 0) {
+            const int error = errno;
+            if (error == EAGAIN || error == EWOULDBLOCK) {
+                continue;
+            }
+            throw std::system_error(error, std::generic_category(),
+                                    "capture_continuously: read");
+        }
+
+        if (bytes_read != static_cast<ssize_t>(sizeof(event))) {
+            throw std::runtime_error("未读到完整的 input_event");
+        }
+        // TODO 2：调用 consume_gyro_event(event, axes)。
+        //         返回 false，继续等待下一条事件。
+        if(!consume_gyro_event(event, axes)) {
+            continue;
+        }
+        // TODO 3：返回 true 时，像 capture_samples() 一样计算 elapsed_us，
+        //         构造 GyroSample，再调用 on_sample(sample)。
+        const auto now = std::chrono::steady_clock::now();
+        const auto elapsed_us = std::chrono::duration_cast<std::chrono::microseconds>(now - start).count();
+        const GyroSample sample{
+            static_cast<std::int64_t>(elapsed_us),
+            axes.x,
+            axes.y,
+            axes.z
+        };
+        on_sample(sample);
+    }
+}
+
+void dual_channel(int gyro_fd, int light_fd, int stop_fd, 
+                  const GyroSampleHandler& on_gyro_sample, const LightSampleHandler& on_light_sample) {
+    pollfd watched[] = {
+        {stop_fd, POLLIN, 0},
+        {gyro_fd, POLLIN, 0},
+        {light_fd, POLLIN, 0}    
+    };
+    // 放在循环外，记录整个测试已经打印了多少条事件。
+    GyroAxes axes{};
+    const auto start = std::chrono::steady_clock::now();
+    for(;;) {
+        int ready;
+        do {
+            ready = ::poll(watched, 3, -1);
+        } while(ready == -1 && errno == EINTR);
+        if (ready < 0) {
+            const int error = errno;
+            throw std::system_error(error, std::generic_category(), "dual_channel: poll");
+        }
+        if (watched[0].revents & POLLIN) {
+            return;
+        }
+
+        const short error_flags = POLLERR | POLLHUP | POLLNVAL;
+        if ((watched[0].revents | watched[1].revents | watched[2].revents) & error_flags) {
+            throw std::runtime_error("dual_channel: fd unavailable");
+        }
+        if(watched[1].revents & POLLIN) {
+            input_event gyro_event{};
+            ssize_t bytes_read;
+            do{
+                bytes_read = ::read(gyro_fd, &gyro_event, sizeof(gyro_event));
+            } while(bytes_read < 0 && errno == EINTR);
+
+            if (bytes_read < 0) {
+                const int error = errno;
+                if (error == EAGAIN || error == EWOULDBLOCK) {
+                    continue;
+                }
+                throw std::system_error(error, std::generic_category(), "dual_channel: read");
+            } else if (bytes_read != static_cast<ssize_t>(sizeof(gyro_event))) {
+                throw std::runtime_error("未读到完整的陀螺仪输入事件");
+            } else if(consume_gyro_event(gyro_event, axes)){
+                // 收到 SYN_REPORT 后，把当前三轴值组装成一个样本。
+                const auto elapsed_us =
+                    std::chrono::duration_cast<std::chrono::microseconds>(
+                        std::chrono::steady_clock::now() - start).count();
+
+                const GyroSample sample{
+                    static_cast<std::int64_t>(elapsed_us),
+                    axes.x,
+                    axes.y,
+                    axes.z
+                };
+
+                // 每一组都交给调用者；是否打印由调用者决定。
+                on_gyro_sample(sample);
+            }
+        }
+        if(watched[2].revents & POLLIN) {
+            input_event light_event{};
+            ssize_t bytes_read;
+            do {
+                bytes_read = ::read(light_fd, &light_event, sizeof(light_event));
+            } while(bytes_read < 0 && errno == EINTR);
+            if (bytes_read < 0) {
+                const int error = errno;
+            // 暂时没数据时自然结束本分支，其他读取错误才报错。
+            if (error != EAGAIN && error != EWOULDBLOCK) {
+                throw std::system_error(error, std::generic_category(), "dual_channel: read light");
+            }
+            } else if (bytes_read != static_cast<ssize_t>(sizeof(light_event))) {
+                throw std::runtime_error("未读到完整的光照输入事件");
+            } else if (light_event.type == EV_ABS && light_event.code == ABS_MISC){
+                // 两路样本共用同一个开始时间，便于比较应用收到它们的先后。
+                const auto elapsed_us =
+                    std::chrono::duration_cast<std::chrono::microseconds>(
+                        std::chrono::steady_clock::now() - start).count();
+
+                const LightSample sample{
+                    static_cast<std::int64_t>(elapsed_us),
+                    light_event.value
+                };
+
+                on_light_sample(sample);
+            }
+        }
+    }
+}
+
+int run_idle_stop_test() {
+    int pipe_fds[2];
+    if (::pipe(pipe_fds) < 0) {
+        std::perror("pipe");
+        return 1;
+    }
+
+    FdGuard input(pipe_fds[0]);
+    // FdGuard unused_writer(pipe_fds[1]);  // 保持写端打开，但不写数据。
+    {
+        FdGuard writer(pipe_fds[1]);  // 离开这个作用域，就关闭管道写端。
+    }
+
+    FdGuard stop(::eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK));
+    if (stop.get() < 0) {
+        std::perror("eventfd");
+        return 1;
+    }
+
+    const int stop_fd = stop.get();
+    const auto start = std::chrono::steady_clock::now();
+
+    // 通知线程等一秒，再唤醒正在 poll() 的采集函数。
+    std::thread notifier([stop_fd] {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+
+        int result;
+        do {
+            result = ::eventfd_write(stop_fd, 1);
+        } while (result < 0 && errno == EINTR);
+
+        if (result < 0) {
+            std::perror("eventfd_write");
+        }
+    });
+
+    std::size_t sample_count = 0;
+    int status = 1;
+
     try {
+        // 空管道不产生数据，因此这个回调一次也不该执行。
+        capture_continuously(input.get(), stop_fd,
+                             [&sample_count](const GyroSample&) {
+                                 ++sample_count;
+                             });
+
+        // 在 join() 前计时，避免把通知线程的等待算进去。
+        const auto elapsed_ms = std::chrono::duration_cast<
+            std::chrono::milliseconds>(
+                std::chrono::steady_clock::now() - start).count();
+
+        std::cout << "采集函数已返回，耗时 " << elapsed_ms
+                  << " ms，收到样本 " << sample_count << " 组\n";
+        status = (elapsed_ms >= 1000 && sample_count == 0) ? 0 : 1;
+    } catch (const std::exception& error) {
+        std::cerr << error.what() << '\n';
+    }
+
+    notifier.join();  // 等通知线程用完 stop_fd，再让 FdGuard 关闭它。
+    return status;
+}
+
+int run_live_capture_test() {
+    // 控制 fd 用来启停上报，输入 fd 用来读陀螺仪事件。
+    FdGuard control(::open("/dev/gyrosensor", O_RDWR | O_CLOEXEC));
+    if (control.get() < 0) {
+        throw std::system_error(errno, std::generic_category(),
+                                "open /dev/gyrosensor");
+    }
+    auto input = open_gyro_input(O_NONBLOCK);
+
+    FdGuard stop(::eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK));
+    if (stop.get() < 0) {
+        throw std::system_error(errno, std::generic_category(), "eventfd");
+    }
+
+    const int stop_fd = stop.get();
+    std::size_t sample_count = 0;
+
+    // 5 秒后让 poll() 醒来，走正常退出路径。
+    std::thread notifier([stop_fd] {
+        std::this_thread::sleep_for(std::chrono::seconds(5));
+
+        int result;
+        do {
+            result = ::eventfd_write(stop_fd, 1);
+        } while (result < 0 && errno == EINTR);
+
+        if (result < 0) {
+            std::perror("eventfd_write");
+        }
+    });
+
+    try {
+        GyroSession session(control.get());  // 开启上报，离开作用域时停用。
+
+        capture_continuously(input.get(), stop_fd,
+                             [&sample_count](const GyroSample& sample) {
+            // 每收到一组就计数，每 30 组显示一次当前原始值。
+            ++sample_count;
+            if (sample_count % 30 == 0) {
+                std::cout << "已采集 " << sample_count << " 组"
+                          << "，原始值 x=" << sample.x
+                          << " y=" << sample.y
+                          << " z=" << sample.z << std::endl;
+            }
+        });
+    } catch (...) {
+        notifier.join();  // 采集失败也要等通知线程结束，再把异常传给 main()。
+        throw;
+    }
+
+    notifier.join();  // 通知线程结束后，stop fd 才能由 FdGuard 关闭。
+    std::cout << "采集结束，共 " << sample_count << " 组\n";
+    return sample_count > 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+int read_light_level_once(int input_fd) {
+    pollfd watched{input_fd, POLLIN, 0};
+
+    for (;;) {
+        // 等输入 fd 可读；一次等待最多 5 秒。
+        const int ready = ::poll(&watched, 1, 5000);
+        if (ready < 0) {
+            const int error = errno;
+            if (error == EINTR) {
+                continue;
+            }
+            throw std::system_error(error, std::generic_category(), "poll light");
+        }
+        if (ready == 0) {
+            throw std::runtime_error("等待光照事件超时");
+        }
+        if (watched.revents & (POLLERR | POLLHUP | POLLNVAL)) {
+            throw std::runtime_error("光照输入 fd 不可用");
+        }
+        if (!(watched.revents & POLLIN)) {
+            continue;
+        }
+
+        // 一次读一条输入事件；暂时读不到就回去等。
+        input_event event{};
+        const ssize_t bytes_read = ::read(input_fd, &event, sizeof(event));
+        if (bytes_read < 0) {
+            const int error = errno;
+            if (error == EINTR || error == EAGAIN || error == EWOULDBLOCK) {
+                continue;
+            }
+            throw std::system_error(error, std::generic_category(), "read light");
+        }
+        if (bytes_read != static_cast<ssize_t>(sizeof(event))) {
+            throw std::runtime_error("未读到完整的光照输入事件");
+        }
+
+        // 官方用例在 ABS_MISC 事件里直接取得光照等级。
+        if (event.type == EV_ABS && event.code == ABS_MISC) {
+            return event.value;
+        }
+    }
+}
+
+int run_dual_gyro_test() {
+    // 控制 fd 用来启停上报，输入 fd 用来读陀螺仪事件。
+    FdGuard control(::open("/dev/gyrosensor", O_RDWR | O_CLOEXEC));
+    if (control.get() < 0) {
+        throw std::system_error(errno, std::generic_category(), "open /dev/gyrosensor");
+    }
+    auto gyro_input = open_gyro_input(O_NONBLOCK);
+
+    // 用空管道模拟暂时没有事件的光照设备。
+    int light_pipe[2];
+    if (::pipe(light_pipe) < 0) {
+        const int error = errno;
+        throw std::system_error(error, std::generic_category(), "pipe light");
+    }
+    FdGuard light_input(light_pipe[0]);
+    FdGuard light_writer(light_pipe[1]);  // 保持写端打开，避免出现 POLLHUP。
+
+    FdGuard stop(::eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK));
+    if (stop.get() < 0) {
+        throw std::system_error(errno, std::generic_category(), "eventfd");
+    }
+
+    const int stop_fd = stop.get();
+
+    // 5 秒后让 poll() 醒来，走正常退出路径。
+    std::thread notifier([stop_fd] {
+        std::this_thread::sleep_for(std::chrono::seconds(5));
+
+        int result;
+        do {
+            result = ::eventfd_write(stop_fd, 1);
+        } while (result < 0 && errno == EINTR);
+
+        if (result < 0) {
+            std::perror("eventfd_write");
+        }
+    });
+
+    try {
+        GyroSession session(control.get());  // 开启上报，离开作用域时停用。
+
+        // 测试入口负责计数，每 30 组显示一次。
+        std::size_t gyro_sample_count = 0;
+        dual_channel(gyro_input.get(), light_input.get(), stop_fd,
+                    [&gyro_sample_count](const GyroSample& sample) {
+                        ++gyro_sample_count;
+                        if (gyro_sample_count % 30 == 0) {
+                            std::cout << "[gyro] 已采集 " << gyro_sample_count << " 组"
+                                    << "，x=" << sample.x
+                                    << " y=" << sample.y
+                                    << " z=" << sample.z << '\n';
+                        }
+                    },             
+                    [](const LightSample&) {// 空管道没有光照数据；收到光照样本说明测试行为不符合预期。
+                        throw std::logic_error("空管道测试不应收到光照样本");
+                    });
+    } catch (...) {
+        notifier.join();  // 采集失败也要等通知线程结束，再把异常传给 main()。
+        throw;
+    }
+
+    notifier.join();  // 通知线程结束后，stop fd 才能由 FdGuard 关闭。
+    // 走到这里说明采集循环正常返回，通知线程也已结束。
+    std::cout << "双路读取测试结束\n";
+    return EXIT_SUCCESS;
+}
+
+int run_dual_live_test() {
+    // 控制 fd 用来启停上报，输入 fd 用来读陀螺仪事件。
+    FdGuard gyro_control(::open("/dev/gyrosensor", O_RDWR | O_CLOEXEC));
+    if (gyro_control.get() < 0) {
+        throw std::system_error(errno, std::generic_category(), "open /dev/gyrosensor");
+    }
+    auto gyro_input = open_gyro_input(O_NONBLOCK);
+
+    // 控制 fd 用来启停光照上报。
+    FdGuard light_control(::open("/dev/lightsensor", O_WRONLY | O_CLOEXEC));
+    if (light_control.get() < 0) {
+        const int error = errno;
+        throw std::system_error(error, std::generic_category(),
+                                "open /dev/lightsensor");
+    }
+
+    // 输入 fd 用来读取事件，交给 dual_channel() 监听。
+    auto light_input = open_input_by_name("lightsensor-level", O_NONBLOCK);
+    
+
+    FdGuard stop(::eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK));
+    if (stop.get() < 0) {
+        throw std::system_error(errno, std::generic_category(), "eventfd");
+    }
+
+    const int stop_fd = stop.get();
+
+    // 5 秒后让 poll() 醒来，走正常退出路径。
+    std::thread notifier([stop_fd] {
+        std::this_thread::sleep_for(std::chrono::seconds(5));
+
+        int result;
+        do {
+            result = ::eventfd_write(stop_fd, 1);
+        } while (result < 0 && errno == EINTR);
+
+        if (result < 0) {
+            std::perror("eventfd_write");
+        }
+    });
+
+    try {
+        GyroSession gyro_session(gyro_control.get());  // 开启上报，离开作用域时停用。
+        LightSession light_session(light_control.get());
+
+        // 测试入口负责计数，每 30 组显示一次。
+        std::size_t gyro_sample_count = 0;
+        dual_channel(gyro_input.get(), light_input.get(), stop_fd,
+                    [&gyro_sample_count](const GyroSample& sample) {
+                        ++gyro_sample_count;
+                        if (gyro_sample_count % 30 == 0) {
+                            std::cout << "[gyro] 已采集 " << gyro_sample_count << " 组"
+                                    << "，x=" << sample.x
+                                    << " y=" << sample.y
+                                    << " z=" << sample.z << '\n';
+                        }
+                    },
+                    [](const LightSample& sample) { // 真机测试每收到一条光照样本，就打印它的等级。
+                        std::cout << "[light] 光照等级: " << sample.level << '\n';
+                    });
+    } catch (...) {
+        notifier.join();  // 采集失败也要等通知线程结束，再把异常传给 main()。
+        throw;
+    }
+
+    notifier.join();  // 通知线程结束后，stop fd 才能由 FdGuard 关闭。
+    // 走到这里说明采集循环正常返回，通知线程也已结束。
+    std::cout << "双路读取测试结束\n";
+    return EXIT_SUCCESS;
+}
+
+int main(int argc,char* argv[]) {
+    //test code
+    try {
+        // Ubuntu 本地测试只使用空管道，不打开板上的设备节点。
+        if (argc == 2 && std::strcmp(argv[1], "--test-idle-stop") == 0) {
+            return run_idle_stop_test();
+        }
+
+        // 只验证能找到并打开光照输入节点，退出时自动关闭 fd。
+        if (argc == 2 && std::strcmp(argv[1], "--test-light-input") == 0) {
+            auto light_input = open_input_by_name("lightsensor-typo");
+            std::cout << "已打开光照输入设备，fd=" << light_input.get() << '\n';
+            return EXIT_SUCCESS;
+        }
+        if (argc == 2 && std::strcmp(argv[1], "--test-dual-gyro") == 0) {
+            return run_dual_gyro_test();
+        }
+        // 只测光照：打开两个 fd，启用上报，读一次，退出时停用。
+        if (argc == 2 && std::strcmp(argv[1], "--test-light-once") == 0) {
+            FdGuard control(::open("/dev/lightsensor", O_WRONLY | O_CLOEXEC));
+            if (control.get() < 0) {
+                throw std::system_error(errno, std::generic_category(), "open /dev/lightsensor");
+            }
+
+            auto input = open_input_by_name("lightsensor-level", O_NONBLOCK);
+            LightSession session(control.get());
+            const int level = read_light_level_once(input.get());
+            std::cout << "光照等级: " << level << '\n';
+            return EXIT_SUCCESS;
+        }
+        // 单独运行两路真实传感器的测试。
+        if (argc == 2 && std::strcmp(argv[1], "--test-dual-live") == 0) {
+            return run_dual_live_test();
+        }
+        // 只在板上运行持续采集测试；不传参数仍走原来的 100 组模式。
+        if (argc == 2 && std::strcmp(argv[1], "--test-live") == 0) {
+            return run_live_capture_test();
+        }
+
         const auto offsets = read_gyro_offsets();
 
         FdGuard control(::open("/dev/gyrosensor", O_RDWR | O_CLOEXEC));
         if (control.get() < 0) {
-            throw std::system_error(errno, std::generic_category(),
-                                    "open /dev/gyrosensor");
+            throw std::system_error(errno, std::generic_category(), "open /dev/gyrosensor");
         }
 
         auto input = open_gyro_input();
@@ -231,7 +787,7 @@ int main() {
         std::vector<GyroSample> samples;
         {
             GyroSession session(control.get());
-            samples = capture_samples(input.get(), 3);
+            samples = capture_samples(input.get(), 100);
         }
 
         std::cout << "offsets: " << offsets.x << ' '
