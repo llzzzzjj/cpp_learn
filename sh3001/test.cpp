@@ -11,6 +11,8 @@
 #include <functional>
 #include <thread>
 #include <deque>
+#include <mutex>
+#include <atomic>
 
 #include <cerrno>
 #include <cstddef>
@@ -139,6 +141,28 @@ public:
 private:
     int control_fd_;
 };
+
+GyroSession::GyroSession(int control_fd) : control_fd_(control_fd) {
+    // TODO：准备一个值为 1 的 int，取地址传给 ioctl。
+    int enable = 1;
+    // TODO：调用 ioctl，把 enable 的地址传进去。
+    // 请求码用 kSetGyroEnable；失败时抛 std::system_error。
+    // 如果返回值 < 0，用 errno 抛出 std::system_error。
+    if(::ioctl(control_fd_, kSetGyroEnable, &enable) < 0) {
+        const int err = errno;
+        throw std::system_error(err, std::generic_category(),"GyroSession: enable gyro");
+    }
+}
+
+GyroSession::~GyroSession() noexcept {
+    // TODO：准备一个值为 0 的 int，用同一个 ioctl 请求停止上报。
+    //       这里不抛异常，也不 close(control_fd_)。
+    const int enable = 0;
+    if (::ioctl(control_fd_, kSetGyroEnable, &enable) < 0) {
+        const int err = errno;
+        std::fprintf(stderr, "GyroSession: disable gyro failed: %s\n", std::strerror(err));
+    }
+}
 class LightSession {
 public:
     explicit LightSession(int control_fd);
@@ -166,26 +190,51 @@ LightSession::~LightSession() noexcept {
         std::perror("LightSession: disable light");
     }
 }
-GyroSession::GyroSession(int control_fd) : control_fd_(control_fd) {
-    // TODO：准备一个值为 1 的 int，取地址传给 ioctl。
-    int enable = 1;
-    // TODO：调用 ioctl，把 enable 的地址传进去。
-    // 请求码用 kSetGyroEnable；失败时抛 std::system_error。
-    // 如果返回值 < 0，用 errno 抛出 std::system_error。
-    if(::ioctl(control_fd_, kSetGyroEnable, &enable) < 0) {
-        const int err = errno;
-        throw std::system_error(err, std::generic_category(),"GyroSession: enable gyro");
+
+class BoundedGyroQueue{
+public:
+    BoundedGyroQueue(std::size_t capacity);
+    void push(const GyroSample& sample);
+    bool try_pop(GyroSample& sample);
+    std::size_t get_dropped_count() const;
+
+private:
+    std::deque<GyroSample>gyro_que;
+    std::size_t capacity_;
+    std::size_t dropped_count_;
+    mutable std::mutex mutex_;
+};
+BoundedGyroQueue::BoundedGyroQueue(std::size_t capacity)
+    :capacity_(capacity), dropped_count_(0){
+    if(capacity == 0) {
+        throw std::invalid_argument("队列容量必须大于0!");
     }
 }
-
-GyroSession::~GyroSession() noexcept {
-    // TODO：准备一个值为 0 的 int，用同一个 ioctl 请求停止上报。
-    //       这里不抛异常，也不 close(control_fd_)。
-    const int enable = 0;
-    if (::ioctl(control_fd_, kSetGyroEnable, &enable) < 0) {
-        const int err = errno;
-        std::fprintf(stderr, "GyroSession: disable gyro failed: %s\n", std::strerror(err));
+void BoundedGyroQueue::push(const GyroSample& sample) {
+    // 进入函数时加锁；正常返回、提前返回或抛异常时自动解锁。
+    std::lock_guard<std::mutex> lock(mutex_);
+    if(gyro_que.size() == capacity_) {
+        gyro_que.pop_front();
+        ++dropped_count_;
     }
+    gyro_que.push_back(sample);
+}
+bool BoundedGyroQueue::try_pop(GyroSample& sample) {
+    // 进入函数时加锁；正常返回、提前返回或抛异常时自动解锁。
+    std::lock_guard<std::mutex> lock(mutex_);
+    if(gyro_que.empty()){
+        return false;
+    }
+    sample = gyro_que.front();
+    gyro_que.pop_front();
+    return true;   
+}
+
+std::size_t BoundedGyroQueue::get_dropped_count() const {
+    // 进入函数时加锁；正常返回、提前返回或抛异常时自动解锁。
+    std::lock_guard<std::mutex> lock(mutex_);
+    // 只读取计数，不修改队列。
+    return dropped_count_;
 }
 
 struct GyroAxes {
@@ -736,6 +785,439 @@ int run_dual_live_test() {
     return EXIT_SUCCESS;
 }
 
+int run_gyro_queue_live_test() {
+    // 控制 fd 用来启停上报，输入 fd 用来读陀螺仪事件。
+    FdGuard control(::open("/dev/gyrosensor", O_RDWR | O_CLOEXEC));
+    if (control.get() < 0) {
+        throw std::system_error(errno, std::generic_category(), "open /dev/gyrosensor");
+    }
+    auto gyro_input = open_gyro_input(O_NONBLOCK);
+
+    // 用空管道模拟暂时没有事件的光照设备。
+    int light_pipe[2];
+    if (::pipe(light_pipe) < 0) {
+        const int error = errno;
+        throw std::system_error(error, std::generic_category(), "pipe light");
+    }
+    FdGuard light_input(light_pipe[0]);
+    FdGuard light_writer(light_pipe[1]);  // 保持写端打开，避免出现 POLLHUP。
+
+    FdGuard stop(::eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK));
+    if (stop.get() < 0) {
+        throw std::system_error(errno, std::generic_category(), "eventfd");
+    }
+
+    const int stop_fd = stop.get();
+    // 用小容量故意触发溢出，并独立统计回调收到的总组数。
+    constexpr std::size_t kQueueCapacity = 3;
+    BoundedGyroQueue gyro_queue(kQueueCapacity);
+    std::size_t received = 0;
+    // 5 秒后让 poll() 醒来，走正常退出路径。
+    std::thread notifier([stop_fd] {
+        std::this_thread::sleep_for(std::chrono::seconds(5));
+
+        int result;
+        do {
+            result = ::eventfd_write(stop_fd, 1);
+        } while (result < 0 && errno == EINTR);
+
+        if (result < 0) {
+            std::perror("eventfd_write");
+        }
+    });
+
+    try {
+        GyroSession session(control.get());  // 开启上报，离开作用域时停用。
+        dual_channel(gyro_input.get(), light_input.get(), stop_fd,
+             [&gyro_queue, &received](const GyroSample& sample) {
+                 // 每组都入队，不受原来“每 30 组打印一次”的限制。
+                 gyro_queue.push(sample);
+                 ++received;
+             },
+             [](const LightSample&) {
+                 throw std::logic_error("空管道测试不应收到光照样本");
+             });
+        } catch (...) {
+            notifier.join();  // 采集失败也要等通知线程结束，再把异常传给 main()。
+            throw;
+        }
+
+    notifier.join();  // 通知线程结束后，stop fd 才能由 FdGuard 关闭。
+    // 采集期间只入队，停止后再取出队列里保留的样本。
+    std::size_t remaining = 0;
+    GyroSample sample{};
+    while (gyro_queue.try_pop(sample)) {
+        ++remaining;
+        std::cout << "保留样本：t=" << sample.elapsed_us << " us"
+                << "，x=" << sample.x << '\n';
+    }
+
+    const std::size_t dropped = gyro_queue.get_dropped_count();
+    std::cout << "收到 " << received << " 组，保留 " << remaining
+            << " 组，丢弃 " << dropped << " 组\n";
+
+    // 先确认真的触发过溢出，再计算应该丢弃多少组。
+    if (received <= kQueueCapacity) {
+        std::cerr << "测试失败：样本太少，没有触发队列溢出\n";
+        return EXIT_FAILURE;
+    }
+    if (remaining != kQueueCapacity || dropped != received - kQueueCapacity) {
+        std::cerr << "测试失败：保留数或丢弃数不符合预期\n";
+        return EXIT_FAILURE;
+    }
+
+    return EXIT_SUCCESS;
+}
+
+int run_gyro_queue_thread_test() {
+    constexpr int kTotalSamples = 1000;
+    BoundedGyroQueue gyro_queue(8);
+    std::atomic<bool> producer_done{false};
+    std::exception_ptr producer_error;
+
+    // 生产线程用 X 值编号，方便检查出队顺序。
+    std::thread producer([&gyro_queue, &producer_done, &producer_error] {
+        try {
+            for (int sequence = 1; sequence <= kTotalSamples; ++sequence) {
+                gyro_queue.push(GyroSample{0, sequence, 0, 0});
+
+                // 分批生产，给消费线程机会在生产期间取数据。
+                if (sequence % 100 == 0) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                }
+            }
+        } catch (...) {
+            // 把异常留给主线程处理，避免异常逃出线程入口。
+            producer_error = std::current_exception();
+        }
+
+        producer_done.store(true);
+    });
+
+    // 主线程充当消费者，检查取出的编号是否始终递增。
+    std::size_t consumed = 0;
+    int last_sequence = 0;
+    bool order_ok = true;
+    GyroSample sample{};
+
+    try {
+        for (;;) {
+            const bool done = producer_done.load();
+
+            if (gyro_queue.try_pop(sample)) {
+                if (sample.x <= last_sequence) {
+                    order_ok = false;
+                }
+                last_sequence = sample.x;
+                ++consumed;
+            } else if (done) {
+                // 已经确认不会再入队，并且这次确实没取到数据。
+                break;
+            } else {
+                // 只是暂时为空；测试里短等一下，避免空转。
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+        }
+    } catch (...) {
+        producer.join();
+        throw;
+    }
+
+    producer.join();
+    if (producer_error) {
+        std::rethrow_exception(producer_error);
+    }
+
+    const std::size_t dropped = gyro_queue.get_dropped_count();
+    std::cout << "入队 " << kTotalSamples << " 组，取出 " << consumed
+              << " 组，丢弃 " << dropped << " 组\n";
+
+    if (!order_ok || consumed == 0 ||
+        consumed + dropped != static_cast<std::size_t>(kTotalSamples)) {
+        std::cerr << "双线程队列测试失败：出队顺序或计数不符合预期\n";
+        return EXIT_FAILURE;
+    }
+
+    std::cout << "双线程队列测试通过\n";
+    return EXIT_SUCCESS;
+}
+
+int run_gyro_queue_eventfd_test() {
+    constexpr int kTotalSamples = 1000;
+    BoundedGyroQueue gyro_queue(8);
+    std::atomic<bool> producer_done{false};
+    std::exception_ptr producer_error;
+    // 该fd用于通知消费者：该检查队列了。
+    FdGuard data_ready(::eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK));
+    if (data_ready.get() < 0) {
+        const int error = errno;
+        throw std::system_error(error, std::generic_category(), "eventfd data_ready");
+    }
+    const int ready_fd = data_ready.get();
+    // 两处通知共用同一段错误处理。
+    const auto notify = [ready_fd] {
+        for (;;) {
+            if (::eventfd_write(ready_fd, 1) == 0) {
+                return;
+            }
+            const int error = errno;
+            if (error == EINTR) {continue;}
+            if (error == EAGAIN) {return;}// 计数器已经无法再加 1，已有待处理通知。
+            throw std::system_error(error, std::generic_category(), "eventfd_write data_ready");
+        }
+    };
+    // 生产线程用 X 值编号，方便检查出队顺序。
+    std::thread producer([&gyro_queue, &producer_done, &producer_error, notify](int total_samples) {
+        try {
+            for (int sequence = 1; sequence <= total_samples; ++sequence) {
+                // 先放数据，再叫醒消费者。
+                gyro_queue.push(GyroSample{0, sequence, 0, 0});
+                notify();
+            }
+        } catch (...) {
+            // 把异常留给主线程处理，避免异常逃出线程入口。
+            producer_error = std::current_exception();
+        }
+
+        producer_done.store(true);
+        try {
+            notify();
+        } catch (...) {
+            if (!producer_error) {
+                producer_error = std::current_exception();
+            }
+        }
+    },
+    kTotalSamples);
+
+    // 主线程充当消费者，检查取出的编号是否始终递增。
+    std::size_t consumed = 0;
+    int last_sequence = 0;
+    bool order_ok = true;
+    GyroSample sample{};
+
+    try {
+        pollfd watched{ready_fd, POLLIN, 0};
+        for (;;) {
+            // TODO 3：用 poll() 等 ready_fd，超时设为 2000 ms。
+            //         区分 EINTR、超时和 fd 异常；只有 POLLIN 才继续读通知。
+            const int ready = poll(&watched, 1, 2000);
+            if(ready < 0){
+                const int error = errno;
+                if(error == EINTR){
+                    continue;
+                }
+                throw std::system_error(error, std::generic_category(), "poll data_ready");
+            }
+            if (ready == 0) {throw std::runtime_error("等待队列通知超时");}
+            if (watched.revents & (POLLERR | POLLHUP | POLLNVAL)) {throw std::runtime_error("数据通知 fd 不可用");}
+            if (!(watched.revents & POLLIN)) {continue;}
+        
+            // TODO 4：用 eventfd_read() 读走通知，再去取样本。
+            //         通知值不等于队列长度，不要拿它当出队次数。
+            eventfd_t notification_count{};
+            if (::eventfd_read(ready_fd, &notification_count) < 0) {
+                const int error = errno;
+                if (error == EINTR || error == EAGAIN) {
+                    continue;
+                }
+                throw std::system_error(error, std::generic_category(),"eventfd_read data_ready");
+            }
+
+            // 先确认生产是否结束，再尝试取空队列。
+            const bool done = producer_done.load();
+            while (gyro_queue.try_pop(sample)) {
+                if (sample.x <= last_sequence) {
+                    order_ok = false;
+                }
+                last_sequence = sample.x;
+                ++consumed;
+            }
+
+            if (done) {
+                break;
+            }
+        }
+    } catch (...) {
+        // 等生产线程结束，再读取它保存的异常。
+        producer.join();
+        if (producer_error) {std::rethrow_exception(producer_error);}
+        throw;
+    }
+
+    producer.join();
+    if (producer_error) {std::rethrow_exception(producer_error);}
+
+    const std::size_t dropped = gyro_queue.get_dropped_count();
+    std::cout << "入队 " << kTotalSamples << " 组，取出 " << consumed
+              << " 组，丢弃 " << dropped << " 组\n";
+
+    // 允许丢旧样本，所以编号可以跳号，但不能倒退或重复。
+    if (!order_ok || consumed == 0 ||
+        consumed + dropped != static_cast<std::size_t>(kTotalSamples)) {
+        std::cerr << "队列通知测试失败：出队顺序或计数不符合预期\n";
+        return EXIT_FAILURE;
+    }
+
+    std::cout << "队列 eventfd 通知测试通过\n";
+    return EXIT_SUCCESS;
+}
+
+int run_gyro_queue_live_eventfd_test() {
+    BoundedGyroQueue gyro_queue(8);
+    std::atomic<bool> producer_done{false};
+    std::exception_ptr producer_error;
+    // 该fd用于通知消费者：该检查队列了。
+    FdGuard data_ready(::eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK));
+    if (data_ready.get() < 0) {
+        const int error = errno;
+        throw std::system_error(error, std::generic_category(), "eventfd data_ready");
+    }
+    const int ready_fd = data_ready.get();
+    // 两处通知共用同一段错误处理。
+    const auto notify = [ready_fd] {
+        for (;;) {
+            if (::eventfd_write(ready_fd, 1) == 0) {
+                return;
+            }
+            const int error = errno;
+            if (error == EINTR) {continue;}
+            if (error == EAGAIN) {return;}// 计数器已经无法再加 1，已有待处理通知。
+            throw std::system_error(error, std::generic_category(), "eventfd_write data_ready");
+        }
+    };
+    // 控制 fd 用来启停上报，输入 fd 用来读陀螺仪事件。
+    FdGuard control(::open("/dev/gyrosensor", O_RDWR | O_CLOEXEC));
+    if (control.get() < 0) {throw std::system_error(errno, std::generic_category(),"open /dev/gyrosensor");}
+    const int control_fd = control.get();
+
+    FdGuard input = open_gyro_input(O_NONBLOCK);
+    const int input_fd = input.get();
+
+    FdGuard stop(::eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK));
+    if (stop.get() < 0) {throw std::system_error(errno, std::generic_category(), "eventfd");}
+    const int stop_fd = stop.get();
+    // 定时到了或消费端报错时，都用它请求停止采集。
+    const auto request_stop = [stop_fd] {
+        for (;;) {
+            if (::eventfd_write(stop_fd, 1) == 0) {return;}
+
+            const int error = errno;
+            if (error == EINTR) {continue;}
+            if (error == EAGAIN) {return;}  // 已有待处理的停止通知。
+
+            std::perror("eventfd_write stop");
+            return;
+        }
+    };
+    // 只由采集线程更新；主线程等 join() 后再读取。
+    std::size_t received = 0;
+    std::thread producer([&gyro_queue, &received, &producer_done, &producer_error,
+                        control_fd, input_fd, stop_fd, notify] {
+        try {
+            // 进入时启用上报，退出这个作用域时停用。
+            GyroSession session(control_fd);
+
+            capture_continuously(input_fd, stop_fd,
+                                [&gyro_queue, &received, notify](const GyroSample& sample) {
+                                    // TODO：入队成功后，更新收到的组数，再发送数据通知。
+                                    gyro_queue.push(sample);
+                                    ++received;
+                                    notify();
+                                });
+        } catch (...) {
+            producer_error = std::current_exception();
+        }
+
+        // 采集已结束；叫醒消费者，把队列里剩余的样本取完。
+        producer_done.store(true);
+        try {
+            notify();
+        } catch (...) {
+            if (!producer_error) {producer_error = std::current_exception();}
+        }
+    });
+
+    // 主线程充当消费者，检查取出的编号是否始终递增。
+    std::size_t consumed = 0;
+    GyroSample sample{};
+
+    std::thread notifier;
+    try {
+        // 到时间只发停止通知，由采集线程自己退出并停用设备。
+        notifier = std::thread([request_stop] {
+            std::this_thread::sleep_for(std::chrono::seconds(5));
+            request_stop();
+        });
+        pollfd watched{ready_fd, POLLIN, 0};
+        for (;;) {
+            // TODO 3：用 poll() 等 ready_fd，超时设为 7000 ms。
+            //         区分 EINTR、超时和 fd 异常；只有 POLLIN 才继续读通知。
+            const int ready = poll(&watched, 1, 7000);
+            if(ready < 0){
+                const int error = errno;
+                if(error == EINTR){
+                    continue;
+                }
+                throw std::system_error(error, std::generic_category(), "poll data_ready");
+            }
+            if (ready == 0) {throw std::runtime_error("等待队列通知超时");}
+            if (watched.revents & (POLLERR | POLLHUP | POLLNVAL)) {throw std::runtime_error("数据通知 fd 不可用");}
+            if (!(watched.revents & POLLIN)) {continue;}
+        
+            // TODO 4：用 eventfd_read() 读走通知，再去取样本。
+            //         通知值不等于队列长度，不要拿它当出队次数。
+            eventfd_t notification_count{};
+            if (::eventfd_read(ready_fd, &notification_count) < 0) {
+                const int error = errno;
+                if (error == EINTR || error == EAGAIN) {
+                    continue;
+                }
+                throw std::system_error(error, std::generic_category(),"eventfd_read data_ready");
+            }
+
+            // 先确认生产是否结束，再尝试取空队列。
+            const bool done = producer_done.load();
+            while (gyro_queue.try_pop(sample)) {
+                ++consumed;
+                // 每 30 组显示一次，确认主线程在采集期间就取到了数据。
+                if (consumed % 30 == 0) {
+                    std::cout << "已采集 " << consumed << " 组，x=" << sample.x << '\n';
+                }
+            }
+
+            if (done) {
+                break;
+            }
+        }
+    } catch (...) {
+        request_stop();
+        // 等生产线程结束，再读取它保存的异常。
+        producer.join();
+        if (notifier.joinable()) {notifier.join();}
+        if (producer_error) {std::rethrow_exception(producer_error);}
+        throw;
+    }
+
+    // 两个线程都收尾后，再读取采集计数或重新抛出异常。
+    producer.join();
+    notifier.join();
+    if (producer_error) {std::rethrow_exception(producer_error);}
+
+    const std::size_t dropped = gyro_queue.get_dropped_count();
+    std::cout << "收到 " << received << " 组，消费 " << consumed
+            << " 组，队列丢弃 " << dropped << " 组\n";
+
+    // 真机采到多少由实际运行决定，退出时按实测总数对账。
+    if (consumed == 0 || received != consumed + dropped) {
+        std::cerr << "真机队列测试失败：没有消费到样本，或收支对不上\n";
+        return EXIT_FAILURE;
+    }
+
+    std::cout << "真机队列 eventfd 通知测试通过\n";
+    return EXIT_SUCCESS;
+}
+
 int main(int argc,char* argv[]) {
     //test code
     try {
@@ -744,6 +1226,53 @@ int main(int argc,char* argv[]) {
             return run_idle_stop_test();
         }
 
+        if (argc == 2 && std::strcmp(argv[1], "--test-gyro-que") == 0) {
+            BoundedGyroQueue gyro_queue(3);
+            for(int x_val = 1; x_val < 5; ++x_val){
+                gyro_queue.push(GyroSample{0,x_val,0,0});
+            }
+            GyroSample sample{};
+             for (int expected_x = 2; expected_x <= 4; ++expected_x) {
+                if (!gyro_queue.try_pop(sample)) {
+                    std::cerr << "测试失败：队列提前空了\n";
+                    return EXIT_FAILURE;
+                }
+                if (sample.x != expected_x) {
+                    std::cerr << "测试失败：预期 x=" << expected_x
+                            << "，实际 x=" << sample.x << '\n';
+                    return EXIT_FAILURE;
+                }
+                std::cout << "取出 x=" << sample.x << '\n';
+            }
+            // 三组取完后应为空，且只有入队时丢弃的那一组计入统计。
+            if (gyro_queue.try_pop(sample)) {
+                std::cerr << "测试失败：队列应该已经为空\n";
+                return EXIT_FAILURE;
+            }
+            if (gyro_queue.get_dropped_count() != 1) {
+                std::cerr << "测试失败：丢弃数应为 1，实际为 "
+                        << gyro_queue.get_dropped_count() << '\n';
+                return EXIT_FAILURE;
+            }
+
+            std::cout << "有界队列测试通过：丢弃 1 组，第四次出队返回 false\n";
+            return EXIT_SUCCESS;
+        }
+        // 只运行 Ubuntu 本地的双线程队列测试。
+        if (argc == 2 && std::strcmp(argv[1], "--test-gyro-queue-thread") == 0) {
+            return run_gyro_queue_thread_test();
+        }
+        // 只运行 Ubuntu 本地的队列通知测试。
+        if (argc == 2 && std::strcmp(argv[1], "--test-gyro-queue-eventfd") == 0) {
+            return run_gyro_queue_eventfd_test();
+        }
+        // 单独运行真实陀螺仪入队测试。
+        if (argc == 2 && std::strcmp(argv[1], "--test-gyro-queue-live") == 0) {
+            return run_gyro_queue_live_test();
+        }
+        if (argc == 2 && std::strcmp(argv[1], "--test-gyro-queue-live-eventfd") == 0) {
+            return run_gyro_queue_live_eventfd_test();
+        }
         // 只验证能找到并打开光照输入节点，退出时自动关闭 fd。
         if (argc == 2 && std::strcmp(argv[1], "--test-light-input") == 0) {
             auto light_input = open_input_by_name("lightsensor-typo");
@@ -774,7 +1303,11 @@ int main(int argc,char* argv[]) {
         if (argc == 2 && std::strcmp(argv[1], "--test-live") == 0) {
             return run_live_capture_test();
         }
-
+        // 有参数却没匹配任何已知模式，直接报错，不进入默认采集。
+        if (argc > 1) {
+            std::cerr << "参数无效：" << argv[1] << '\n';
+            return EXIT_FAILURE;
+        }
         const auto offsets = read_gyro_offsets();
 
         FdGuard control(::open("/dev/gyrosensor", O_RDWR | O_CLOEXEC));
