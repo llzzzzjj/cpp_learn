@@ -10,6 +10,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/home/lzj/cpp_learn/webserver/demo_test/epoll_server.cpp" "CMakeFiles/epoll_server.dir/epoll_server.cpp.o" "gcc" "CMakeFiles/epoll_server.dir/epoll_server.cpp.o.d"
   "/home/lzj/cpp_learn/webserver/demo_test/epoll_server_handlers.cpp" "CMakeFiles/epoll_server.dir/epoll_server_handlers.cpp.o" "gcc" "CMakeFiles/epoll_server.dir/epoll_server_handlers.cpp.o.d"
+  "/home/lzj/cpp_learn/rk3568_dual_acquisition/sensor_acquisition.cpp" "CMakeFiles/epoll_server.dir/home/lzj/cpp_learn/rk3568_dual_acquisition/sensor_acquisition.cpp.o" "gcc" "CMakeFiles/epoll_server.dir/home/lzj/cpp_learn/rk3568_dual_acquisition/sensor_acquisition.cpp.o.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

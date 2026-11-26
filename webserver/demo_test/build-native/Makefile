@@ -253,6 +253,30 @@ epoll_server_handlers.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/epoll_server.dir/build.make CMakeFiles/epoll_server.dir/epoll_server_handlers.cpp.s
 .PHONY : epoll_server_handlers.cpp.s
 
+home/lzj/cpp_learn/rk3568_dual_acquisition/sensor_acquisition.o: home/lzj/cpp_learn/rk3568_dual_acquisition/sensor_acquisition.cpp.o
+.PHONY : home/lzj/cpp_learn/rk3568_dual_acquisition/sensor_acquisition.o
+
+# target to build an object file
+home/lzj/cpp_learn/rk3568_dual_acquisition/sensor_acquisition.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/epoll_server.dir/build.make CMakeFiles/epoll_server.dir/home/lzj/cpp_learn/rk3568_dual_acquisition/sensor_acquisition.cpp.o
+.PHONY : home/lzj/cpp_learn/rk3568_dual_acquisition/sensor_acquisition.cpp.o
+
+home/lzj/cpp_learn/rk3568_dual_acquisition/sensor_acquisition.i: home/lzj/cpp_learn/rk3568_dual_acquisition/sensor_acquisition.cpp.i
+.PHONY : home/lzj/cpp_learn/rk3568_dual_acquisition/sensor_acquisition.i
+
+# target to preprocess a source file
+home/lzj/cpp_learn/rk3568_dual_acquisition/sensor_acquisition.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/epoll_server.dir/build.make CMakeFiles/epoll_server.dir/home/lzj/cpp_learn/rk3568_dual_acquisition/sensor_acquisition.cpp.i
+.PHONY : home/lzj/cpp_learn/rk3568_dual_acquisition/sensor_acquisition.cpp.i
+
+home/lzj/cpp_learn/rk3568_dual_acquisition/sensor_acquisition.s: home/lzj/cpp_learn/rk3568_dual_acquisition/sensor_acquisition.cpp.s
+.PHONY : home/lzj/cpp_learn/rk3568_dual_acquisition/sensor_acquisition.s
+
+# target to generate assembly for a file
+home/lzj/cpp_learn/rk3568_dual_acquisition/sensor_acquisition.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/epoll_server.dir/build.make CMakeFiles/epoll_server.dir/home/lzj/cpp_learn/rk3568_dual_acquisition/sensor_acquisition.cpp.s
+.PHONY : home/lzj/cpp_learn/rk3568_dual_acquisition/sensor_acquisition.cpp.s
+
 line_test.o: line_test.cpp.o
 .PHONY : line_test.o
 
@@ -323,6 +347,9 @@ help:
 	@echo "... epoll_server_handlers.o"
 	@echo "... epoll_server_handlers.i"
 	@echo "... epoll_server_handlers.s"
+	@echo "... home/lzj/cpp_learn/rk3568_dual_acquisition/sensor_acquisition.o"
+	@echo "... home/lzj/cpp_learn/rk3568_dual_acquisition/sensor_acquisition.i"
+	@echo "... home/lzj/cpp_learn/rk3568_dual_acquisition/sensor_acquisition.s"
 	@echo "... line_test.o"
 	@echo "... line_test.i"
 	@echo "... line_test.s"

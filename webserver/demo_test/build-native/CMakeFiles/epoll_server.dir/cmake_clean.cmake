@@ -3,6 +3,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/epoll_server.dir/epoll_server.cpp.o.d"
   "CMakeFiles/epoll_server.dir/epoll_server_handlers.cpp.o"
   "CMakeFiles/epoll_server.dir/epoll_server_handlers.cpp.o.d"
+  "CMakeFiles/epoll_server.dir/home/lzj/cpp_learn/rk3568_dual_acquisition/sensor_acquisition.cpp.o"
+  "CMakeFiles/epoll_server.dir/home/lzj/cpp_learn/rk3568_dual_acquisition/sensor_acquisition.cpp.o.d"
   "epoll_server"
   "epoll_server.pdb"
 )

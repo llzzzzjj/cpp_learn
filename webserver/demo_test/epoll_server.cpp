@@ -17,25 +17,80 @@
 #include <cstring>
 #include <exception>
 #include <iostream>
+#include <sstream>  // C++ 标准库：在内存里拼接状态响应。
 #include <stdexcept>
+#include <system_error>  // C++11 标准库：保留通知失败的 errno。
+
+#include <optional>  // C++17 标准库：表达“还没有样本”。
 
 namespace {
 // 服务端的默认 TCP 端口。交互客户端和协议脚本都连接这个端口。
 constexpr int kPort = 8888;
 // 单次 epoll_wait 最多取出的就绪事件数。
 constexpr int kMaxReadyEvents = 16;
+constexpr std::int64_t kGyroPushIntervalUs = 100000;  // 陀螺仪推送间隔：100 ms。
+
+void post_sensor_event(int fd) {
+    for (;;) {
+        if (::eventfd_write(fd, 1) == 0) {return;}
+        const int error = errno;
+        if (error == EINTR) {continue;}
+        if (error == EAGAIN) {return;}  // 计数器已可读，接收方仍能醒来。
+        throw std::system_error(error, std::generic_category(), "eventfd_write sensor");
+    }
+}
 }
 
-// 创建监听 Socket、事件通知资源和线程池，再向 epoll 登记三个入口 fd。
-EpollServer::EpollServer(int port)
+// 先登记通知入口，最后启动采集线程。
+EpollServer::EpollServer(int port, bool enable_sensors)
     : listen_fd_(create_listener(port)),
       epoll_fd_(checked_fd(::epoll_create1(0), "epoll_create1")),
       result_event_fd(checked_fd(::eventfd(0, EFD_NONBLOCK), "eventfd")),
+      // 和线程池结果通知分开，主循环才能根据 fd 区分来源。
+      sensor_event_fd_(checked_fd(::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC), "eventfd sensor")),
+      sensor_stop_fd_(checked_fd(::eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC), "eventfd sensor stop")),
       stop_event_fd(create_stop_event()), 
       pool_(2, 64) {
     add_read_event(listen_fd_.get());
     add_read_event(result_event_fd.get());
+    add_read_event(sensor_event_fd_.get());
     add_read_event(stop_event_fd.get());
+    if (enable_sensors) {start_sensor_capture();}
+}
+
+void EpollServer::start_sensor_capture() {
+    sensor_thread_ = std::thread([this] {
+        try {
+            capture_dual_sensors(
+                sensor_stop_fd_.get(),
+                [this](const GyroSample& sample) {
+                    // 先发布样本，再通知主线程来取。
+                    gyro_queue_.push(sample);
+                    post_sensor_event(sensor_event_fd_.get());
+                },
+                [this](const LightSample& sample) {
+                    light_queue_.push(sample);
+                    post_sensor_event(sensor_event_fd_.get());
+                });
+        } catch (const std::exception& error) {
+            // 单独报告采集失败，TCP 仍可继续服务。
+            std::fprintf(stderr, "[sensor] 采集退出：%s\n", error.what());
+        } catch (...) {
+            std::fprintf(stderr, "[sensor] 采集退出：未知异常\n");
+        }
+    });
+}
+
+EpollServer::~EpollServer() noexcept {
+    if (!sensor_thread_.joinable()) {return;}
+
+    // 采集线程借用这些成员，唤醒并等它停用设备后再销毁成员。
+    try {
+        post_sensor_event(sensor_stop_fd_.get());
+    } catch (const std::exception& error) {
+        std::fprintf(stderr, "[sensor] 停止通知失败：%s\n", error.what());
+    }
+    sensor_thread_.join();
 }
 
 // 主线程的事件循环。每个就绪项按 fd 分发到对应处理函数。
@@ -61,7 +116,9 @@ void EpollServer::run() {
                 }
             } else if (fd == result_event_fd.get()) {
                 on_result_ready();
-            } else if (fd == listen_fd_.get()) {
+            }  else if (fd == sensor_event_fd_.get()) {
+                on_sensor_ready();
+            }else if (fd == listen_fd_.get()) {
                 on_accept_ready();
             } else {
                 on_client_ready(fd, events[i].events);
@@ -149,6 +206,95 @@ bool EpollServer::modify_event(int fd, std::uint32_t interest) {
     return true;
 }
 
+void EpollServer::on_sensor_ready() {
+    eventfd_t count{};
+    int result;
+
+    // 读走累计通知，避免水平触发反复报告同一次可读。
+    do {
+        result = ::eventfd_read(sensor_event_fd_.get(), &count);
+    } while (result < 0 && errno == EINTR);
+
+    if (result < 0 && errno == EAGAIN) {return;}
+    handle_error("eventfd_read sensor", result);
+
+    // 本轮每路最多取一个队列容量，避免持续采样占住 socket 事件循环。
+    // 本轮中途新增的样本仍会有单独的通知。
+    GyroSample gyro{};
+    for (std::size_t index = 0; index < kSensorQueueCapacity && gyro_queue_.try_pop(gyro); ++index) {
+        // 保存本轮取到的最新样本，供状态查询使用。
+        latest_gyro_ = gyro;
+        ++gyro_consumed_;
+        if (gyro_consumed_ == 1 || gyro_consumed_ % 30 == 0) {
+            std::cout << "[gyro] 已消费 " << gyro_consumed_ << " 组，x=" << gyro.x
+                      << " y=" << gyro.y << " z=" << gyro.z << '\n';
+        }
+    }
+
+    LightSample light{};
+    for (std::size_t index = 0; index < kSensorQueueCapacity && light_queue_.try_pop(light); ++index) {
+        // 等级 0 也是有效样本；每次出队都更新快照和计数。
+        latest_light_ = light;
+        ++light_consumed_;
+        publish_sensor_sample(SensorChannel::Light, "DATA light level=" + std::to_string(light.level) + '\n');
+        std::cout << "[light] 等级=" << light.level << '\n';
+    }
+
+    // 光照先尝试发送；陀螺仪每轮只考虑最新样本。
+    if (!latest_gyro_) {return;}
+    const GyroSample& sample = *latest_gyro_;
+    if (last_gyro_push_us_ && sample.elapsed_us - *last_gyro_push_us_ < kGyroPushIntervalUs) {return;}
+    last_gyro_push_us_ = sample.elapsed_us;
+
+    std::ostringstream response;
+    response << "DATA gyro x=" << sample.x << " y=" << sample.y << " z=" << sample.z << '\n';
+    publish_sensor_sample(SensorChannel::Gyro, response.str());
+}
+
+void EpollServer::publish_sensor_sample(SensorChannel channel, const std::string& response) {
+    for (auto it = clients_.begin(); it != clients_.end();) {
+        // 先推进迭代器，发送准备失败时可以安全删除当前连接。
+        auto current = it++;
+        const int fd = current->first;
+        Connection& conn = current->second;
+
+        // 忙碌的连接跳过本次推送，避免覆盖已有响应或插队。
+        const bool subscribed = channel == SensorChannel::Gyro ? conn.gyro_subscribed : conn.light_subscribed;
+        if (!subscribed) {continue;}
+        if (conn.worker_pending) {
+            ++conn.push_skipped_worker;
+            continue;
+        }
+        if (conn.sent < conn.size) {
+            ++conn.push_skipped_pending;
+            continue;
+        }
+        if (!stage_response(conn, response)) {close_connection(fd);}
+    }
+}
+
+std::string EpollServer::make_status_response() const {
+    std::ostringstream response;
+    // 快照和计数由 epoll 线程维护；三轴仍是原始值。
+    response << "STATUS gyro_count=" << gyro_consumed_ << " gyro_raw=";
+    if (latest_gyro_) {
+        response << latest_gyro_->x << ',' << latest_gyro_->y << ',' << latest_gyro_->z;
+    } else {
+        response << "NA";
+    }
+
+    response << " light_count=" << light_consumed_ << " light_level=";
+    if (latest_light_) {
+        response << latest_light_->level;
+    } else {
+        response << "NA";
+    }
+
+    // 每条响应以换行结束，客户端沿用原有分帧。
+    response << '\n';
+    return response.str();
+}
+
 // 主线程读取退出信号，返回 true 时 run() 结束循环。
 bool EpollServer::on_stop_ready() {
     signalfd_siginfo info{};
@@ -167,9 +313,16 @@ bool EpollServer::on_stop_ready() {
 }
 
 // 创建服务器并运行事件循环，统一报告启动或运行失败。
-int main() {
+int main(int argc, char* argv[]) {
+    const bool enable_sensors = argc == 2 && std::strcmp(argv[1], "--sensors") == 0;
+    if (argc != 1 && !enable_sensors) {
+        std::fprintf(stderr, "用法：%s [--sensors]\n", argv[0]);
+        return EXIT_FAILURE;
+    }
+
     try {
-        EpollServer server(kPort);
+        // Ubuntu 可只跑 Echo；在 RK3568 上用 --sensors 启用真机采集。
+        EpollServer server(kPort, enable_sensors);
         server.run();
         return EXIT_SUCCESS;
     } catch (const std::exception& error) {

@@ -82,13 +82,11 @@ void EpollServer::on_client_ready(int fd, std::uint32_t ready) {
                 should_close = !dispatch_next(conn);
             }
         }
-    } else if (ready & EPOLLIN) {
-        const ssize_t n = ::recv(fd, conn.output_buf,
-                                 sizeof(conn.output_buf), 0);
+    } else if (!conn.worker_pending && (ready & EPOLLIN)) {
+        const ssize_t n = ::recv(fd, conn.output_buf, sizeof(conn.output_buf), 0);
         if (n > 0) {
             // 只追加实际读到的字节，再尝试取出一条完整请求。
-            conn.input_buf.append(conn.output_buf,
-                                  static_cast<std::size_t>(n));
+            conn.input_buf.append(conn.output_buf, static_cast<std::size_t>(n));
             should_close = !dispatch_next(conn);
         } else if (n == 0) {
             should_close = true;  // 对端已经结束发送。
@@ -109,6 +107,8 @@ bool EpollServer::send_pending(Connection& conn) {
     if (conn.sent == conn.size) {
         return true;  // 没有剩余字节
     }
+    // 保存本次准备发送的长度，用于判断是否只发出了一部分。
+    const std::size_t remaining = conn.size - conn.sent;
     // 起始地址跳过已发送部分，长度只计算尚未发送的字节。
     const ssize_t n = ::send(
         conn.socket.get(),
@@ -118,15 +118,32 @@ bool EpollServer::send_pending(Connection& conn) {
     ); // 对端断开时，通过返回值处理发送错误
     if (n > 0) {
         conn.sent += static_cast<std::size_t>(n);
+        if (static_cast<std::size_t>(n) < remaining) {
+            ++conn.short_writes;
+        }
         return true;
     }
     if (n < 0) {
-        if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) {
-            return true; // 保留发送进度，稍后再试
+        if (errno == EINTR) {
+            return true;
+        }
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            ++conn.send_would_block;
+            return true;  // 保留发送进度，等下次 EPOLLOUT。
         }
         std::perror("send");
     }
     return false;
+}
+
+bool EpollServer::stage_response(Connection& conn, const std::string& response) {
+    if (response.empty() || response.size() > sizeof(conn.output_buf)) {return false;}
+
+    // 交给原有 EPOLLOUT 分支发送，保留短发送进度。
+    std::memcpy(conn.output_buf, response.data(), response.size());
+    conn.size = response.size();
+    conn.sent = 0;
+    return modify_event(conn.socket.get(), EPOLLOUT);
 }
 
 // 主线程从连接缓冲区尝试提取一行，按需恢复读关注或提交工作任务。
@@ -150,6 +167,22 @@ bool EpollServer::dispatch_next(Connection& conn) {
         return false;
     }
 
+    // extract_line 保留行尾；命令和回包都复用原有分帧。
+    if (request == "STATUS\n" || request == "STATUS\r\n") {return stage_response(conn, make_status_response());}
+    if (request == "SUB light\n" || request == "SUB light\r\n") {
+        conn.light_subscribed = true;
+        return stage_response(conn, "OK SUB light\n");
+    }
+    if (request == "SUB gyro\n" || request == "SUB gyro\r\n") {
+        conn.gyro_subscribed = true;
+        return stage_response(conn, "OK SUB gyro\n");
+    }
+    if (request == "UNSUB\n" || request == "UNSUB\r\n") {
+        conn.light_subscribed = false;
+        conn.gyro_subscribed = false;
+        return stage_response(conn, "OK UNSUB\n");
+    }
+
     const std::uint64_t connection_id = conn.id;
     // 请求和连接身份由任务持有，结果队列和锁由服务器持有。
     auto& results = results_;
@@ -170,6 +203,7 @@ bool EpollServer::dispatch_next(Connection& conn) {
     }
 
     // 提交成功，暂停这个连接的读写关注，等工作结果回来。
+    conn.worker_pending = true;
     return modify_event(fd, 0);
 }
 
@@ -234,6 +268,7 @@ void EpollServer::on_result_ready() {
         }
 
         Connection& target = it->second;
+        target.worker_pending = false;  // 连接编号已核对，可交付这个结果。
         bool should_close = false;
 
         if (result.data.empty() ||
@@ -261,6 +296,16 @@ void EpollServer::on_result_ready() {
 
 // 主线程统一取消事件登记并释放客户端 Socket。
 void EpollServer::close_connection(int fd) {
+    // 连接关闭前打印一行汇总，方便用连接编号区分 A 和 B。
+    const auto it = clients_.find(fd);
+    if (it != clients_.end()) {
+        const Connection& conn = it->second;
+        std::cout << "[tx] id=" << conn.id
+                << " skip_worker=" << conn.push_skipped_worker
+                << " skip_pending=" << conn.push_skipped_pending
+                << " short_writes=" << conn.short_writes
+                << " would_block=" << conn.send_would_block << '\n';
+    }
     // 取消这个客户端的事件登记。
     if (::epoll_ctl(epoll_fd_.get(), EPOLL_CTL_DEL, fd, nullptr) == -1) {
         std::perror("epoll_ctl DEL");

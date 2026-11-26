@@ -1,0 +1,2 @@
+/opt/atk-dlrk356x-toolchain/usr/bin/aarch64-buildroot-linux-gnu-ar qc libthreadpool.a CMakeFiles/threadpool.dir/threadpool.cpp.o
+/opt/atk-dlrk356x-toolchain/usr/bin/aarch64-buildroot-linux-gnu-ranlib libthreadpool.a

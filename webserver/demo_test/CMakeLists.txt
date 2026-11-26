@@ -15,6 +15,12 @@ add_executable(epoll_server
     epoll_server.cpp
     epoll_server_handlers.cpp
 )
+# 使用改名后的采集源码目录。
+set(SENSOR_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../rk3568_dual_acquisition")
+target_sources(epoll_server PRIVATE "${SENSOR_DIR}/sensor_acquisition.cpp")
+target_include_directories(epoll_server PRIVATE "${SENSOR_DIR}")
+target_compile_features(epoll_server PRIVATE cxx_std_17)
+
 add_subdirectory(
     "${CMAKE_CURRENT_SOURCE_DIR}/../../threadpool"
     "${CMAKE_CURRENT_BINARY_DIR}/threadpool-build"

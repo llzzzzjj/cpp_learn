@@ -1,0 +1,1 @@
+/opt/atk-dlrk356x-toolchain/usr/bin/aarch64-buildroot-linux-gnu-g++ CMakeFiles/client_test.dir/client_test.cpp.o CMakeFiles/client_test.dir/socket_utils.cpp.o -o client_test 
